@@ -34,3 +34,31 @@ export STAGING_ROOT="/data/safe_staging"
 if [ -x /data/openpilot/starpilot/system/environment_variables ]; then
   eval "$(/data/openpilot/starpilot/system/environment_variables)"
 fi
+
+# === 动态代理设置开始 ===
+# 获取当前连接的 Wi-Fi 名称
+CURRENT_SSID=$(iwgetid -r)
+
+case "$CURRENT_SSID" in
+    "asus_AX86U")
+        export http_proxy="http://192.168.1.21:7890"
+        export https_proxy="http://192.168.1.21:7890"
+        export HTTP_PROXY="http://192.168.1.21:7890"
+        export HTTPS_PROXY="http://192.168.1.21:7890"
+        ;;
+    "另一个热点名称")
+        # 如果有其他网络需要不同的代理，在这里添加
+        export http_proxy="http://其他IP:端口"
+        export https_proxy="http://其他IP:端口"
+        export HTTP_PROXY="http://其他IP:端口"
+        export HTTPS_PROXY="http://其他IP:端口"
+        ;;
+    *)
+        # 对于不匹配的 Wi-Fi（例如手机热点、公共 Wi-Fi），确保清除代理，保持直连
+        unset http_proxy
+        unset https_proxy
+        unset HTTP_PROXY
+        unset HTTPS_PROXY
+        ;;
+esac
+# === 动态代理设置结束 ===
