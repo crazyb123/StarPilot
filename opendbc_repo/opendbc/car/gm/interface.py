@@ -93,6 +93,26 @@ def get_nonlinear_torque_params(car_fingerprint):
   source_fingerprint = NON_LINEAR_TORQUE_PARAM_ALIASES.get(car_fingerprint, car_fingerprint)
   return NON_LINEAR_TORQUE_PARAMS.get(source_fingerprint)
 
+
+def get_envision_dynamic_params(v_ego: float) -> tuple[float, float, float, float]:
+  """
+  Exclusive dynamic torque interpolation for BUICK_ENVISION_SDGM.
+  Interpolates torque parameters (a, b, c, d) based on current vehicle speed (m/s).
+  Low speeds get higher torque ceiling (b) and slope (c) to overcome EPS resistance.
+  """
+  speed_bins = [6.7, 13.4, 20.1, 29.1]
+  a_vals = [2.4, 2.4, 2.4, 2.4]
+  b_vals = [1.10, 1.02, 0.95, 0.88]  # b=1.10 at low speed to solve 90-degree turns
+  c_vals = [0.24, 0.22, 0.20, 0.18]
+  d_vals = [0.0, 0.0, 0.0, 0.0]
+  
+  a = float(np.interp(v_ego, speed_bins, a_vals))
+  b = float(np.interp(v_ego, speed_bins, b_vals))
+  c = float(np.interp(v_ego, speed_bins, c_vals))
+  d = float(np.interp(v_ego, speed_bins, d_vals))
+  return a, b, c, d
+
+
 PEDAL_MSG = 0x201
 CAM_MSG = 0x320
 ACCELERATOR_POS_MSG = 0xBE
@@ -150,9 +170,15 @@ class CarInterface(CarInterfaceBase):
   CarState = CarState
   CarController = CarController
   RadarInterface = RadarInterface
+  
+  # Cache current speed globally to avoid AttributeError when accessing self.CS during init
+  _current_v_ego = 0.0
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
+    # Update the class-level speed cache on every control loop for dynamic torque interpolation
+    CarInterface._current_v_ego = current_speed
+  
     if CP.enableGasInterceptorDEPRECATED and bool(CP.flags & GMFlags.PEDAL_LONG.value):
       if CP.carFingerprint == CAR.CHEVROLET_BOLT_ACC_2022_2023_PEDAL:
         accel_min = CarControllerParams.ACCEL_MIN
@@ -209,20 +235,56 @@ class CarInterface(CarInterfaceBase):
 
   def torque_from_lateral_accel(self) -> TorqueFromLateralAccelCallbackType:
     if get_nonlinear_torque_params(self.CP.carFingerprint) is not None:
-      torque_values, lataccel_values = self.get_lataccel_torque_siglin()
-
       def torque_from_lateral_accel_siglin(lateral_acceleration: float, torque_params: structs.CarParams.LateralTorqueTuning):
-        return np.interp(lateral_acceleration, lataccel_values, torque_values)
+        # Dynamic interpolation calculation (executed every frame based on real-time speed)
+        if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+          # Read the cached speed to avoid self.CS AttributeError
+          v_ego = CarInterface._current_v_ego
+          a, b, c, d = get_envision_dynamic_params(v_ego)
+        else:
+          # Fallback to static lookup table for all other vehicle models
+          non_linear_torque_params = get_nonlinear_torque_params(self.CP.carFingerprint)
+          if isinstance(non_linear_torque_params, dict):
+            side_key = "left" if lateral_acceleration >= 0 else "right"
+            a, b, c, d = non_linear_torque_params[side_key]
+          else:
+            a, b, c, d = non_linear_torque_params
+
+        sig_input = a * lateral_acceleration
+        sig = np.sign(sig_input) * (1 / (1 + exp(-fabs(sig_input))) - 0.5)
+        steer_torque = (sig * b) + (lateral_acceleration * c) + d
+        return float(steer_torque)
+
       return torque_from_lateral_accel_siglin
     else:
       return self.torque_from_lateral_accel_linear
 
+
   def lateral_accel_from_torque(self) -> LateralAccelFromTorqueCallbackType:
     if get_nonlinear_torque_params(self.CP.carFingerprint) is not None:
-      torque_values, lataccel_values = self.get_lataccel_torque_siglin()
-
       def lateral_accel_from_torque_siglin(torque: float, torque_params: structs.CarParams.LateralTorqueTuning):
-        return np.interp(torque, torque_values, lataccel_values)
+        # Dynamic interpolation calculation (executed every frame based on real-time speed)
+        if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+          # Read the cached speed to avoid self.CS AttributeError
+          v_ego = CarInterface._current_v_ego
+          a, b, c, d = get_envision_dynamic_params(v_ego)
+        else:
+          # Fallback to static lookup table for all other vehicle models
+          non_linear_torque_params = get_nonlinear_torque_params(self.CP.carFingerprint)
+          if isinstance(non_linear_torque_params, dict):
+            side_key = "left" if torque >= 0 else "right"
+            a, b, c, d = non_linear_torque_params[side_key]
+          else:
+            a, b, c, d = non_linear_torque_params
+
+        # Dynamically generate the lookup table for inverse mapping (NumPy vectorization for max performance)
+        lataccel_values = np.arange(-5.0, 5.0, 0.01)
+        sig_input = a * lataccel_values
+        sig = np.sign(sig_input) * (1 / (1 + np.exp(-np.abs(sig_input))) - 0.5)
+        torque_values = (sig * b) + (lataccel_values * c) + d
+        
+        return float(np.interp(torque, torque_values, lataccel_values))
+
       return lateral_accel_from_torque_siglin
     else:
       return self.lateral_accel_from_torque_linear
