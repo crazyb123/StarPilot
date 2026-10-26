@@ -186,20 +186,24 @@ class CarInterface(CarInterfaceBase):
   _envision_v_ego_filt = 0.0
   _envision_v_ego_ready = False
 
-  def update(self, CS, *args, **kwargs):
+  def update(self, can_list, *args, **kwargs):
+    ret = super().update(can_list, *args, **kwargs)
     # Only ENVISION needs a fresh filtered vEgo for dynamic torque interpolation.
-    # All other cars short-circuit and see exactly the original behavior.
+    # self.CS is populated inside super().update(), so read it after the call.
     if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
-      v = float(CS.vEgo)
-      if isfinite(v) and v >= 0.0:
-        if not self._envision_v_ego_ready:
-          # Snap to the first valid speed to avoid a slow ramp from 0
-          self._envision_v_ego_filt = v
-          self._envision_v_ego_ready = True
-        else:
-          # 100 Hz low-pass, tau ~= 0.5 s -> alpha = dt / (tau + dt) ~= 0.02
-          self._envision_v_ego_filt += 0.02 * (v - self._envision_v_ego_filt)
-    return super().update(CS, *args, **kwargs)
+      cs = getattr(self, 'CS', None)
+      if cs is not None:
+        # Use getattr to protect against early frames where vEgo isn't parsed yet
+        v = float(getattr(cs, 'vEgo', 0.0))
+        if isfinite(v) and v >= 0.0:
+          if not self._envision_v_ego_ready:
+            if v > 0.0:  # Wait for a valid non-zero speed to snap
+              self._envision_v_ego_filt = v
+              self._envision_v_ego_ready = True
+          else:
+            # 100 Hz low-pass, tau ~= 0.5 s -> alpha = dt / (tau + dt) ~= 0.02
+            self._envision_v_ego_filt += 0.02 * (v - self._envision_v_ego_filt)
+    return ret
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
