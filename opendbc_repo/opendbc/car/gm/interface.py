@@ -79,8 +79,8 @@ NON_LINEAR_TORQUE_PARAMS = {
   # callers of get_lataccel_torque_siglin(). Real runtime path uses the
   # dynamic get_envision_dynamic_params() below.
   CAR.BUICK_ENVISION_SDGM: {
-    "left": [2.4, 1.00, 0.23, 0.0],
-    "right": [2.4, 1.00, 0.23, 0.0],
+    "left": [2.4, 0.98, 0.18, 0.0],
+    "right": [2.4, 0.98, 0.18, 0.0],
   },
 }
 
@@ -108,8 +108,8 @@ def get_envision_dynamic_params(v_ego: float) -> tuple[float, float, float, floa
 
   speed_bins = [6.7, 13.4, 20.1, 29.1]  # m/s, ~24/48/72/105 km/h
   a_vals = [2.4, 2.4, 2.4, 2.4]
-  b_vals = [1.00, 0.98, 0.94, 0.88]     # low-speed raised for 90-degree turns
-  c_vals = [0.23, 0.22, 0.20, 0.18]
+  b_vals = [0.98, 0.98, 0.95, 0.95]     # low-speed raised for 90-degree turns
+  c_vals = [0.18, 0.19, 0.20, 0.20]
   d_vals = [0.0, 0.0, 0.0, 0.0]
 
   a = float(np.interp(v_ego, speed_bins, a_vals))
