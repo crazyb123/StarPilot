@@ -277,7 +277,7 @@ class CarInterface(CarInterfaceBase):
           else:
             a, b, c, d = non_linear_torque_params
 
-        # Dynamically generate the lookup table for inverse mapping (1NumPy vectorization for max performance)
+        # Dynamically generate the lookup table for inverse mapping (NumPy vectorization for max performance)
         lataccel_values = np.arange(-5.0, 5.0, 0.01)
         sig_input = a * lataccel_values
         sig = np.sign(sig_input) * (1 / (1 + np.exp(-np.abs(sig_input))) - 0.5)
