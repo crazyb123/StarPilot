@@ -5,6 +5,7 @@ from collections import deque
 from cereal import custom, log
 from opendbc.car.honda.values import CAR as HONDA_CAR, HondaFlags
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR, HyundaiFlags
+from opendbc.car.gm.values import CAR as GM_CAR
 from opendbc.car.lateral import get_friction
 from opendbc.car.toyota.values import CAR as TOYOTA_CAR
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY
@@ -150,6 +151,9 @@ class LatControlTorque(LatControl):
     self.is_gmc_yukon_cc = CP.carFingerprint in GMC_YUKON_CC_CARS
     self.is_ram_1500 = CP.carFingerprint in RAM_1500_CARS
     self.is_gm = CP.brand == "gm"
+    # === 新增：注册 Envision 专属判定 ===
+    self.is_envision = CP.carFingerprint == GM_CAR.BUICK_ENVISION_SDGM
+    # =================================
     self.is_hkg_canfd_torque = CP.brand == "hyundai" and bool(CP.flags & HyundaiFlags.CANFD)
     self.flm_surface_profile_key = get_flm_surface_profile_key(CP.carFingerprint, torque_control=True)
     if self.is_ioniq_6:
@@ -287,6 +291,10 @@ class LatControlTorque(LatControl):
       desired_lateral_accel_rate = (setpoint - self.prev_desired_lateral_accel) / self.dt
       unwind_detected = (desired_lateral_accel_rate < UNWIND_D_DES_THRESHOLD and
                          abs(setpoint) < UNWIND_LAT_ACCEL_NEAR_ZERO)
+      # === 新增：Envision 回正时极速衰减积分器，保留极小基础值 ===
+      if self.is_envision and unwind_detected:
+          self.pid.i *= 0.1 
+      # ==========================================================
       self.prev_desired_lateral_accel = setpoint
 
       measurement_rate = self.measurement_rate_filter.update((measurement - self.previous_measurement) / self.dt)
@@ -570,7 +578,10 @@ class LatControlTorque(LatControl):
       friction_jerk = math.copysign(max(abs(desired_lateral_jerk) - friction_jerk_deadzone, 0.0),
                                     desired_lateral_jerk)
       friction_threshold += KIA_CARNIVAL_HEV_CENTER_FRICTION_INCREMENT * carnival_hev_center_weight
-      ff += friction_scale * get_friction(error_with_lsf + JERK_GAIN * friction_jerk, lateral_accel_deadzone, friction_threshold, self.torque_params)
+      # === 修改：Envision 回正时，将摩擦补偿衰减至 30% ===
+      envision_friction_mult = 0.3 if (self.is_envision and unwind_detected) else 1.0
+      ff += friction_scale * envision_friction_mult * get_friction(error_with_lsf + JERK_GAIN * friction_jerk, lateral_accel_deadzone, friction_threshold, self.torque_params)
+      # ==========================================================
       deadzone_boost_active = False
       if self.torque_deadzone_boost > 0.0 and abs(gravity_adjusted_future_lateral_accel) < DEADZONE_BOOST_LAT_ACCEL:
         boost_scale = np.interp(abs(gravity_adjusted_future_lateral_accel), [0.0, DEADZONE_BOOST_LAT_ACCEL], [1.0, 0.0])
