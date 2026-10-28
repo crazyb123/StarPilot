@@ -112,7 +112,7 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
   rects_ptr = rl.ffi.new("Rectangle **")
   image = rl.gen_image_font_atlas(glyphs, rects_ptr, len(codepoints), font_size, GLYPH_PADDING, 0)
 
-  # 新增：如果图集过大，主动报错退出，避免无限循环
+  # new
   if image.width > 8192 or image.height > 8192:
     raise RuntimeError(f"Atlas for {font_path.name} is too large ({image.width}x{image.height})! Try reducing font size.")
 
@@ -138,7 +138,7 @@ def main():
     if "emoji" in font.name.lower():
       continue
 
-    # 跳过所有的 Inter 字体
+    # new
     if not (font.stem.lower().startswith("unifont") or font.stem in CJK_FONTS):
       continue
 
