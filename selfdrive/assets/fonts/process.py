@@ -97,7 +97,7 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
   font_size = {
     "unifont.otf": 16,  # unifont is only 16x8 or 16x16 pixels per glyph
-    "NotoSansCJKsc-Regular.otf": 64,
+    "NotoSansCJKsc-Regular.otf": 32,
   }.get(font_path.name, 200)
 
   data = font_path.read_bytes()
@@ -111,6 +111,11 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
   rects_ptr = rl.ffi.new("Rectangle **")
   image = rl.gen_image_font_atlas(glyphs, rects_ptr, len(codepoints), font_size, GLYPH_PADDING, 0)
+
+  # 新增：如果图集过大，主动报错退出，避免无限循环
+  if image.width > 8192 or image.height > 8192:
+    raise RuntimeError(f"Atlas for {font_path.name} is too large ({image.width}x{image.height})! Try reducing font size.")
+
   if image.width == 0 or image.height == 0:
     raise RuntimeError("raylib returned an empty atlas")
 
@@ -132,6 +137,11 @@ def main():
   for font in fonts:
     if "emoji" in font.name.lower():
       continue
+
+    # 跳过所有的 Inter 字体
+    if not (font.stem.lower().startswith("unifont") or font.stem in CJK_FONTS):
+      continue
+
     if font.name == "como-heavy.otf":
       glyphs = tuple(sorted({ord(c) for c in BRAND_FONT_CHARS}))
     else:
