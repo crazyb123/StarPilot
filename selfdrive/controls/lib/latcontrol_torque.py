@@ -582,6 +582,10 @@ class LatControlTorque(LatControl):
       envision_friction_mult = 0.3 if (self.is_envision and unwind_detected) else 1.0
       ff += friction_scale * envision_friction_mult * get_friction(error_with_lsf + JERK_GAIN * friction_jerk, lateral_accel_deadzone, friction_threshold, self.torque_params)
       # ==========================================================
+      # === 新增：Envision 回正时，强制削减 40% 的总前馈扭矩 ===
+      if self.is_envision and unwind_detected:
+          ff *= 0.6
+      # ==========================================================
       deadzone_boost_active = False
       if self.torque_deadzone_boost > 0.0 and abs(gravity_adjusted_future_lateral_accel) < DEADZONE_BOOST_LAT_ACCEL:
         boost_scale = np.interp(abs(gravity_adjusted_future_lateral_accel), [0.0, DEADZONE_BOOST_LAT_ACCEL], [1.0, 0.0])
