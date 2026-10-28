@@ -28,12 +28,13 @@ def _char_sets():
 
   for language, code in _languages().items():
     unifont.update(language)
-    po_path = TRANSLATIONS_DIR / f"app_{code}.po"
+    lang_code = code.removeprefix("main_")
+    po_path = TRANSLATIONS_DIR / f"app_{lang_code}.po"
     try:
       chars = set(po_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
       continue
-    (unifont if code in UNIFONT_LANGUAGES else base).update(chars)
+    (unifont if lang_code in UNIFONT_LANGUAGES else base).update(chars)
 
   return tuple(sorted(ord(c) for c in base)), tuple(sorted(ord(c) for c in unifont))
 
@@ -96,6 +97,7 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
   font_size = {
     "unifont.otf": 16,  # unifont is only 16x8 or 16x16 pixels per glyph
+    "NotoSansCJKsc-Regular.otf": 64,
   }.get(font_path.name, 200)
 
   data = font_path.read_bytes()
@@ -124,6 +126,7 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
 def main():
   base_cp, unifont_cp = _char_sets()
+  CJK_FONTS = {"NotoSansCJKsc-Regular", "NotoSansCJKtc-Regular"}
   fonts = sorted(FONT_DIR.glob("*.ttf")) + sorted(FONT_DIR.glob("*.otf"))
   for font in fonts:
     if "emoji" in font.name.lower():
@@ -131,7 +134,7 @@ def main():
     if font.name == "como-heavy.otf":
       glyphs = tuple(sorted({ord(c) for c in BRAND_FONT_CHARS}))
     else:
-      glyphs = unifont_cp if font.stem.lower().startswith("unifont") else base_cp
+      glyphs = unifont_cp if (font.stem.lower().startswith("unifont") or font.stem in CJK_FONTS) else base_cp
     _process_font(font, glyphs)
   return 0
 
