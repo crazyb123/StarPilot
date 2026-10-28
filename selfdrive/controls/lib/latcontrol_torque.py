@@ -5,7 +5,6 @@ from collections import deque
 from cereal import custom, log
 from opendbc.car.honda.values import CAR as HONDA_CAR, HondaFlags
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR, HyundaiFlags
-from opendbc.car.gm.values import CAR as GM_CAR
 from opendbc.car.lateral import get_friction
 from opendbc.car.toyota.values import CAR as TOYOTA_CAR
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY
@@ -53,12 +52,6 @@ DEADZONE_BOOST_LAT_ACCEL = 0.15
 UNWIND_D_DES_THRESHOLD = -1.0
 UNWIND_LAT_ACCEL_NEAR_ZERO = 0.3
 MIN_LATERAL_CONTROL_SPEED = 0.3
-
-# Envision 专用回正检测，不影响其他车型
-ENVISION_UNWIND_RATE_ABS_THRESHOLD = 0.2   # m/s^3，朝零变化的绝对值
-ENVISION_UNWIND_LAT_ACCEL_NEAR_ZERO = 0.3
-ENVISION_UNWIND_I_DECAY = 0.98             # 每帧衰减，100Hz 下约 0.5s 降到 ~36%
-ENVISION_UNWIND_FRICTION_MULT = 0.5
 
 # Small planner jerk changes around the lane center can repeatedly re-trigger the
 # friction compensation term. Keep this correction out of the center band while
@@ -157,9 +150,6 @@ class LatControlTorque(LatControl):
     self.is_gmc_yukon_cc = CP.carFingerprint in GMC_YUKON_CC_CARS
     self.is_ram_1500 = CP.carFingerprint in RAM_1500_CARS
     self.is_gm = CP.brand == "gm"
-    # === 新增：注册 Envision 专属判定 ===
-    self.is_envision = CP.carFingerprint == GM_CAR.BUICK_ENVISION_SDGM
-    # =================================
     self.is_hkg_canfd_torque = CP.brand == "hyundai" and bool(CP.flags & HyundaiFlags.CANFD)
     self.flm_surface_profile_key = get_flm_surface_profile_key(CP.carFingerprint, torque_control=True)
     if self.is_ioniq_6:
@@ -297,19 +287,6 @@ class LatControlTorque(LatControl):
       desired_lateral_accel_rate = (setpoint - self.prev_desired_lateral_accel) / self.dt
       unwind_detected = (desired_lateral_accel_rate < UNWIND_D_DES_THRESHOLD and
                          abs(setpoint) < UNWIND_LAT_ACCEL_NEAR_ZERO)
-      # === Envision 专用：朝零 + 绝对值阈值，正反向都覆盖 ===
-      envision_toward_zero = (abs(setpoint) > 1e-3 and
-                              setpoint * desired_lateral_accel_rate < 0.0)
-      envision_unwind_detected = (self.is_envision and
-                                  abs(setpoint) < ENVISION_UNWIND_LAT_ACCEL_NEAR_ZERO and
-                                  envision_toward_zero and
-                                  abs(desired_lateral_accel_rate) > ENVISION_UNWIND_RATE_ABS_THRESHOLD)
-      if envision_unwind_detected:
-        self.debug_counter += 1
-        if self.debug_counter % 50 == 0:
-          print(f"envision unwind: setpoint={setpoint:.3f} rate={desired_lateral_accel_rate:.3f} i={self.pid.i:.4f}")
-        self.pid.i *= ENVISION_UNWIND_I_DECAY
-      # ==========================================================
       self.prev_desired_lateral_accel = setpoint
 
       measurement_rate = self.measurement_rate_filter.update((measurement - self.previous_measurement) / self.dt)
@@ -593,10 +570,7 @@ class LatControlTorque(LatControl):
       friction_jerk = math.copysign(max(abs(desired_lateral_jerk) - friction_jerk_deadzone, 0.0),
                                     desired_lateral_jerk)
       friction_threshold += KIA_CARNIVAL_HEV_CENTER_FRICTION_INCREMENT * carnival_hev_center_weight
-      # === Envision 专用：回正时摩擦补偿衰减；非 Envision 时 mult=1.0，表达式等价 ===
-      envision_friction_mult = ENVISION_UNWIND_FRICTION_MULT if envision_unwind_detected else 1.0
-      ff += friction_scale * envision_friction_mult * get_friction(error_with_lsf + JERK_GAIN * friction_jerk, lateral_accel_deadzone, friction_threshold, self.torque_params)
-      # ==========================================================
+      ff += friction_scale * get_friction(error_with_lsf + JERK_GAIN * friction_jerk, lateral_accel_deadzone, friction_threshold, self.torque_params)
       deadzone_boost_active = False
       if self.torque_deadzone_boost > 0.0 and abs(gravity_adjusted_future_lateral_accel) < DEADZONE_BOOST_LAT_ACCEL:
         boost_scale = np.interp(abs(gravity_adjusted_future_lateral_accel), [0.0, DEADZONE_BOOST_LAT_ACCEL], [1.0, 0.0])
@@ -621,8 +595,7 @@ class LatControlTorque(LatControl):
         )
         self.pid._k_d = [[0.0], [damping_gain]]
       freeze_integrator = (steer_limited_by_safety or CS.steeringPressed or
-                           CS.vEgo < self.low_speed_reset_threshold or unwind_detected or
-                           envision_unwind_detected)
+                           CS.vEgo < self.low_speed_reset_threshold or unwind_detected)
       error_rate = 0.0 if self.is_genesis_gv70 and CS.steeringPressed else -measurement_rate
       output_lataccel = self.pid.update(pid_log.error, error_rate=error_rate, speed=CS.vEgo, feedforward=ff,
                                        freeze_integrator=freeze_integrator)
