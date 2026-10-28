@@ -176,8 +176,9 @@ class Multilang:
       self._plurals = {}
 
   def change_language(self, language_code: str) -> None:
-    self._params.put("LanguageSetting", language_code)
-    self._language = language_code
+    normalized = language_code.removeprefix("main_")
+    self._params.put("LanguageSetting", normalized)
+    self._language = normalized
     self.setup()
 
   def tr(self, text: str) -> str:
