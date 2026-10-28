@@ -28,13 +28,12 @@ def _char_sets():
 
   for language, code in _languages().items():
     unifont.update(language)
-    lang_code = code.removeprefix("main_")
-    po_path = TRANSLATIONS_DIR / f"app_{lang_code}.po"
+    po_path = TRANSLATIONS_DIR / f"app_{code}.po"
     try:
       chars = set(po_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
       continue
-    (unifont if lang_code in UNIFONT_LANGUAGES else base).update(chars)
+    (unifont if code in UNIFONT_LANGUAGES else base).update(chars)
 
   return tuple(sorted(ord(c) for c in base)), tuple(sorted(ord(c) for c in unifont))
 
@@ -97,25 +96,18 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
   font_size = {
     "unifont.otf": 16,  # unifont is only 16x8 or 16x16 pixels per glyph
-    "NotoSansCJKsc-Regular.otf": 32,
   }.get(font_path.name, 200)
 
   data = font_path.read_bytes()
   file_buf = rl.ffi.new("unsigned char[]", data)
   cp_buffer = rl.ffi.new("int[]", codepoints)
   cp_ptr = rl.ffi.cast("int *", cp_buffer)
-  glyph_count = rl.ffi.new("int *")
-  glyphs = rl.load_font_data(rl.ffi.cast("unsigned char *", file_buf), len(data), font_size, cp_ptr, len(codepoints), rl.FontType.FONT_DEFAULT, glyph_count)
+  glyphs = rl.load_font_data(rl.ffi.cast("unsigned char *", file_buf), len(data), font_size, cp_ptr, len(codepoints), rl.FontType.FONT_DEFAULT)
   if glyphs == rl.ffi.NULL:
     raise RuntimeError("raylib failed to load font data")
 
   rects_ptr = rl.ffi.new("Rectangle **")
   image = rl.gen_image_font_atlas(glyphs, rects_ptr, len(codepoints), font_size, GLYPH_PADDING, 0)
-
-  # new
-  if image.width > 8192 or image.height > 8192:
-    raise RuntimeError(f"Atlas for {font_path.name} is too large ({image.width}x{image.height})! Try reducing font size.")
-
   if image.width == 0 or image.height == 0:
     raise RuntimeError("raylib returned an empty atlas")
 
@@ -132,20 +124,14 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
 
 def main():
   base_cp, unifont_cp = _char_sets()
-  CJK_FONTS = {"NotoSansCJKsc-Regular", "NotoSansCJKtc-Regular"}
   fonts = sorted(FONT_DIR.glob("*.ttf")) + sorted(FONT_DIR.glob("*.otf"))
   for font in fonts:
     if "emoji" in font.name.lower():
       continue
-
-    # new
-    if not (font.stem.lower().startswith("unifont") or font.stem in CJK_FONTS):
-      continue
-
     if font.name == "como-heavy.otf":
       glyphs = tuple(sorted({ord(c) for c in BRAND_FONT_CHARS}))
     else:
-      glyphs = unifont_cp if (font.stem.lower().startswith("unifont") or font.stem in CJK_FONTS) else base_cp
+      glyphs = unifont_cp if font.stem.lower().startswith("unifont") else base_cp
     _process_font(font, glyphs)
   return 0
 
