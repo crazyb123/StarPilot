@@ -1,5 +1,8 @@
 #include "fdcan_declarations.h"
 
+// add new
+extern int power_save_status;
+
 FDCAN_GlobalTypeDef *cans[PANDA_CAN_CNT] = {FDCAN1, FDCAN2, FDCAN3};
 
 static bool can_set_speed(uint8_t can_number) {
