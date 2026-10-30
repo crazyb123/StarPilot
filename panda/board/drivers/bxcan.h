@@ -214,7 +214,7 @@ bool can_init(uint8_t can_number) {
     ret &= can_set_speed(can_number);
     ret &= llcan_init(CANx);
     // add new
-    #ifdef PANDA_BODY
+    #if !defined(PANDA_BODY) && !defined(PANDA_JUNGLE)
     // Reinitialization must not leave IRQs running on powered-down transceivers.
     if (power_save_status == POWER_SAVE_STATUS_ENABLED) {
       set_power_save_state(POWER_SAVE_STATUS_ENABLED);
