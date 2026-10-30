@@ -1,5 +1,5 @@
 #include "fdcan_declarations.h"
-#include "power_saving_declarations.h"  // add new
+#include "../power_saving_declarations.h"  // add new
 
 FDCAN_GlobalTypeDef *cans[PANDA_CAN_CNT] = {FDCAN1, FDCAN2, FDCAN3};
 
