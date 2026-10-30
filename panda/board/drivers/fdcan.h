@@ -269,6 +269,7 @@ bool can_init(uint8_t can_number) {
       set_power_save_state(POWER_SAVE_STATUS_ENABLED);
     }
     #endif
+    // add end
     // in case there are queued up messages
     process_can(can_number);
   }
