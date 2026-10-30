@@ -1,7 +1,5 @@
 #include "bxcan_declarations.h"
-
-// add new
-extern int power_save_status;
+#include "power_saving_declarations.h"  // add new
 
 // IRQs: CAN1_TX, CAN1_RX0, CAN1_SCE
 //       CAN2_TX, CAN2_RX0, CAN2_SCE
