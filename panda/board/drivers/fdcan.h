@@ -1,7 +1,5 @@
 #include "fdcan_declarations.h"
-
-// add new
-extern int power_save_status;
+#include "power_saving_declarations.h"  // add new
 
 FDCAN_GlobalTypeDef *cans[PANDA_CAN_CNT] = {FDCAN1, FDCAN2, FDCAN3};
 
