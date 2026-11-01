@@ -19,7 +19,7 @@ static const LongitudinalLimits *gm_long_limits;
 static const TorqueSteeringLimits *gm_steer_limits;
 
 static const TorqueSteeringLimits GM_STEERING_LIMITS = {
-  .max_torque = 300,
+  .max_torque = 330,   // test ENVISON 300 -> 330
   .max_rate_up = 10,
   .max_rate_down = 15,
   .driver_torque_allowance = 65,
