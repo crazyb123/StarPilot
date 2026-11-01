@@ -54,6 +54,15 @@ class CarControllerParams:
       self.STEER_DRIVER_MULTIPLIER = 6
       self.STEER_DRIVER_FACTOR = 100
 
+    # NEW：Add Envision
+    elif CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      self.STEER_MAX = 330
+      self.STEER_DELTA_UP = 10
+      self.STEER_DELTA_DOWN = 15
+      self.STEER_DRIVER_ALLOWANCE = 65
+      self.STEER_DRIVER_MULTIPLIER = 4
+      self.STEER_DRIVER_FACTOR = 100
+
     # Gas/brake lookups
     self.ZERO_GAS = 6150  # Coasting
     self.MAX_BRAKE = 400  # ~ -4.0 m/s^2 with regen
