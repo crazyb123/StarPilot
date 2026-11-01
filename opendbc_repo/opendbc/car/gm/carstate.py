@@ -268,6 +268,13 @@ class CarState(CarStateBase):
       pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"],
     )
     ret.vEgoCluster = ret.vEgo * getattr(starpilot_toggles, "cluster_offset", 1.0)
+    # Add: YawRate
+    lateral_accel = pt_cp.vl["EBCMVehicleDynamic"]["LateralAcceleration"]
+    if ret.vEgo > 3.0:
+      ret.yawRate = lateral_accel / ret.vEgo
+    else:
+      ret.yawRate = 0.0
+    # End Add
     # standstill=True if ECM allows engagement with brake.
     ret.standstill = abs(pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"]) <= STANDSTILL_THRESHOLD and \
                      abs(pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"]) <= STANDSTILL_THRESHOLD
@@ -554,6 +561,7 @@ class CarState(CarStateBase):
       ("PSCMSteeringAngle", 100),
       ("ECMAcceleratorPos", 80),
       ("SportMode", 0),
+      ("EBCMVehicleDynamic", 50),  # Add NEW!
       *gps_messages,
     ]
 
