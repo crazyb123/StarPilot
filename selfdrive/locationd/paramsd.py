@@ -136,6 +136,16 @@ class VehicleParamsLearner:
       if self.active:
         self.kf.predict_and_observe(t, ObservationKind.STEER_ANGLE, np.array([[np.radians(steering_angle)]]))
         self.kf.predict_and_observe(t, ObservationKind.ROAD_FRAME_X_SPEED, np.array([[self.observed_speed]]))
+        # Add NEW
+        if self.CP.carFingerprint == "BUICK_ENVISION_SDGM" and self.observed_speed > 3.0:
+            if abs(msg.yawRate) > 0.02:
+                self.kf.predict_and_observe(
+                    t,
+                    ObservationKind.ROAD_FRAME_YAW_RATE,
+                    np.array([[msg.yawRate]]),
+                    np.array([np.atleast_2d(np.radians(5.0)**2)]) 
+                )
+        # End Add
 
     if not self.active:
       # Reset time when stopped so uncertainty doesn't grow
