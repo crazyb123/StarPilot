@@ -54,7 +54,7 @@ class CarControllerParams:
       self.STEER_DRIVER_MULTIPLIER = 6
       self.STEER_DRIVER_FACTOR = 100
 
-    # NEW：Add Envision
+    # NEW: Add Envision
     elif CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
       self.STEER_MAX = 330
       self.STEER_DELTA_UP = 10
