@@ -104,11 +104,19 @@ class VehicleParamsLearner:
 
       if self.active:
         if msg.posenetOK:
-          self.kf.predict_and_observe(t,
-                                      ObservationKind.ROAD_FRAME_YAW_RATE,
-                                      np.array([[-self.observed_yaw_rate]]),
-                                      np.array([np.atleast_2d((yaw_rate_std * 3.0)**2)])) # <--- change
-
+          # Add envision yawrate
+          if self.CP.carFingerprint == "BUICK_ENVISION_SDGM":
+            self.kf.predict_and_observe(t,
+                                        ObservationKind.ROAD_FRAME_YAW_RATE,
+                                        np.array([[-self.observed_yaw_rate]]),
+                                        np.array([np.atleast_2d((yaw_rate_std * 3.0)**2)]))
+          else:
+            # End Add
+            self.kf.predict_and_observe(t,
+                                        ObservationKind.ROAD_FRAME_YAW_RATE,
+                                        np.array([[-self.observed_yaw_rate]]),
+                                        np.array([np.atleast_2d(yaw_rate_std**2)]))
+          
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_ROLL,
                                       np.array([[self.observed_roll]]),
