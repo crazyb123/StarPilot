@@ -107,7 +107,7 @@ class VehicleParamsLearner:
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_FRAME_YAW_RATE,
                                       np.array([[-self.observed_yaw_rate]]),
-                                      np.array([np.atleast_2d(yaw_rate_std**2)]))
+                                      np.array([np.atleast_2d((yaw_rate_std * 3.0)**2)])) # <--- change
 
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_ROLL,
@@ -143,7 +143,7 @@ class VehicleParamsLearner:
                 t,
                 ObservationKind.ROAD_FRAME_YAW_RATE,
                 np.array([[msg.yawRate]]), 
-                np.array([np.atleast_2d(np.radians(1.5)**2)])
+                np.array([np.atleast_2d(np.radians(1.0)**2)]) # np.array([np.atleast_2d(np.radians(1.5)**2)])
             )
         # End Add
 
