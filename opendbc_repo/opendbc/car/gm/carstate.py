@@ -268,6 +268,11 @@ class CarState(CarStateBase):
       pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"],
     )
     ret.vEgoCluster = ret.vEgo * getattr(starpilot_toggles, "cluster_offset", 1.0)
+    # Add YawRate from EBCM
+    if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM and pt_cp.vl and "EBCMVehicleDynamic" in pt_cp.vl:
+      # Convert deg/s to rad/s. Keep native SAE left-positive convention.
+      ret.yawRate = math.radians(pt_cp.vl["EBCMVehicleDynamic"]["YawRate"])
+    # End Add
     # standstill=True if ECM allows engagement with brake.
     ret.standstill = abs(pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"]) <= STANDSTILL_THRESHOLD and \
                      abs(pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"]) <= STANDSTILL_THRESHOLD
@@ -556,6 +561,11 @@ class CarState(CarStateBase):
       ("SportMode", 0),
       *gps_messages,
     ]
+
+    # Add EBCMVehicleDynamic for Buick Envision SDGM
+    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      pt_messages.append(("EBCMVehicleDynamic", 50))
+    # End Add
 
     prndl2_rate = 10 if CP.carFingerprint in kaofui_state_cars else 40
     if sdgm_non_volt:
