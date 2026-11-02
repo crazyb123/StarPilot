@@ -25,6 +25,11 @@ OFFSET_LOWERED_MAX = 8.0
 MIN_ACTIVE_SPEED = 1.0
 LOW_ACTIVE_SPEED = 10.0
 
+# Add CAN Yaw Rate constants
+CAN_YAW_RATE_OBS_STD = np.radians(1.0)  # 1.0 deg/s -> rad/s
+CAN_YAW_RATE_MAX = np.radians(60.0)     # 60.0 deg/s -> rad/s
+# End Add
+
 
 def resolve_vehicle_model_params(learned_steer_ratio: float, learned_stiffness: float, starpilot_toggles) -> tuple[float, float]:
   if getattr(starpilot_toggles, "force_auto_tune_off", False):
@@ -136,6 +141,22 @@ class VehicleParamsLearner:
       if self.active:
         self.kf.predict_and_observe(t, ObservationKind.STEER_ANGLE, np.array([[np.radians(steering_angle)]]))
         self.kf.predict_and_observe(t, ObservationKind.ROAD_FRAME_X_SPEED, np.array([[self.observed_speed]]))
+
+        # Add CAN Yaw Rate Observation
+        if self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and self.observed_speed > 3.0:
+          can_yaw_rate = getattr(msg, 'yawRate', 0.0)
+          
+          # Filter out invalid 0 values and extreme outliers
+          if 0.0 < abs(can_yaw_rate) < CAN_YAW_RATE_MAX:
+            self.kf.predict_and_observe(
+              t, 
+              ObservationKind.ROAD_FRAME_YAW_RATE,
+              # Negate the value to match native IMU convention (left-negative)
+              np.array([[-can_yaw_rate]]), 
+              # Use high confidence to suppress IMU noise
+              np.array([np.atleast_2d(CAN_YAW_RATE_OBS_STD ** 2)])
+            )
+        # End Add
 
     if not self.active:
       # Reset time when stopped so uncertainty doesn't grow
