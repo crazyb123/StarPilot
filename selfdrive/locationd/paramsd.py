@@ -28,6 +28,7 @@ LOW_ACTIVE_SPEED = 10.0
 # Add CAN Yaw Rate constants
 CAN_YAW_RATE_OBS_STD = np.radians(1.0)  # 1.0 deg/s -> rad/s
 CAN_YAW_RATE_MAX = np.radians(60.0)     # 60.0 deg/s -> rad/s
+CAN_YAW_RATE_MIN_SPEED = 3.0            # 3.0 m/s, about 10.8 km/h
 # End Add
 
 
@@ -143,7 +144,7 @@ class VehicleParamsLearner:
         self.kf.predict_and_observe(t, ObservationKind.ROAD_FRAME_X_SPEED, np.array([[self.observed_speed]]))
 
         # Add CAN Yaw Rate Observation
-        if self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and self.observed_speed > 3.0:
+        if self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and self.observed_speed > CAN_YAW_RATE_MIN_SPEED:
           can_yaw_rate = getattr(msg, 'yawRate', 0.0)
           
           # Filter out noise and outliers: > 1.0 deg/s (deadzone) and < 60.0 deg/s
