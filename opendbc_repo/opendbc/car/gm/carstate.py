@@ -269,11 +269,7 @@ class CarState(CarStateBase):
     )
     ret.vEgoCluster = ret.vEgo * getattr(starpilot_toggles, "cluster_offset", 1.0)
     # Add: YawRate
-    lateral_accel = pt_cp.vl["EBCMVehicleDynamic"]["LateralAcceleration"]
-    if ret.vEgo > 3.0:
-      ret.yawRate = lateral_accel / ret.vEgo
-    else:
-      ret.yawRate = 0.0
+    ret.yawRate = math.radians(pt_cp.vl["EBCMVehicleDynamic"]["YawRate"])
     # End Add
     # standstill=True if ECM allows engagement with brake.
     ret.standstill = abs(pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"]) <= STANDSTILL_THRESHOLD and \
