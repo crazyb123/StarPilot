@@ -146,8 +146,8 @@ class VehicleParamsLearner:
         if self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and self.observed_speed > 3.0:
           can_yaw_rate = getattr(msg, 'yawRate', 0.0)
           
-          # Filter out invalid 0 values and extreme outliers
-          if 0.0 < abs(can_yaw_rate) < CAN_YAW_RATE_MAX:
+          # Filter out noise and outliers: > 1.0 deg/s (deadzone) and < 60.0 deg/s
+          if np.radians(1.0) < abs(can_yaw_rate) < CAN_YAW_RATE_MAX:
             self.kf.predict_and_observe(
               t, 
               ObservationKind.ROAD_FRAME_YAW_RATE,
