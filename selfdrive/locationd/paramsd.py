@@ -104,7 +104,7 @@ class VehicleParamsLearner:
 
       if self.active:
         if msg.posenetOK:
-          # Add envision yawrate
+          # Add Delete envision yawrate
           if self.CP.carFingerprint == "BUICK_ENVISION_SDGM":
             # 昂科威专属：彻底禁用 IMU 的 YawRate 注入，因为 CDC 侧倾导致数据失真
             # 只保留 Roll 的注入
