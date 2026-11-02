@@ -106,21 +106,23 @@ class VehicleParamsLearner:
         if msg.posenetOK:
           # Add envision yawrate
           if self.CP.carFingerprint == "BUICK_ENVISION_SDGM":
+            # 昂科威专属：彻底禁用 IMU 的 YawRate 注入，因为 CDC 侧倾导致数据失真
+            # 只保留 Roll 的注入
             self.kf.predict_and_observe(t,
-                                        ObservationKind.ROAD_FRAME_YAW_RATE,
-                                        np.array([[-self.observed_yaw_rate]]),
-                                        np.array([np.atleast_2d((yaw_rate_std * 3.0)**2)]))
+                                        ObservationKind.ROAD_ROLL,
+                                        np.array([[self.observed_roll]]),
+                                        np.array([np.atleast_2d(roll_std**2)]))
           else:
-            # End Add
+            # 其他车型：保持原生逻辑绝对不打扰
             self.kf.predict_and_observe(t,
                                         ObservationKind.ROAD_FRAME_YAW_RATE,
                                         np.array([[-self.observed_yaw_rate]]),
                                         np.array([np.atleast_2d(yaw_rate_std**2)]))
+            self.kf.predict_and_observe(t,
+                                        ObservationKind.ROAD_ROLL,
+                                        np.array([[self.observed_roll]]),
+                                        np.array([np.atleast_2d(roll_std**2)]))
           
-          self.kf.predict_and_observe(t,
-                                      ObservationKind.ROAD_ROLL,
-                                      np.array([[self.observed_roll]]),
-                                      np.array([np.atleast_2d(roll_std**2)]))
         self.kf.predict_and_observe(t, ObservationKind.ANGLE_OFFSET_FAST, np.array([[0]]))
 
         # We observe the current stiffness and steer ratio (with a high observation noise) to bound
