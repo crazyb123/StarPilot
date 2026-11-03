@@ -67,6 +67,12 @@ class VehicleParamsLearner:
     self.observed_yaw_rate = 0.0
     self.observed_roll = 0.0
 
+    # === Cache variables with timestamps for CAN YawRate ===
+    self.can_yaw_rate = 0.0
+    self.can_yaw_rate_ts = -1e9
+    self.can_yaw_rate_valid = False
+    # ========================================================
+
     self.avg_offset_valid = True
     self.total_offset_valid = True
     self.roll_valid = True
@@ -110,10 +116,28 @@ class VehicleParamsLearner:
 
       if self.active:
         if msg.posenetOK:
+          # === Core Refactor: Implement CAN-first fusion with freshness check ===
+          can_yaw_fresh = self.can_yaw_rate_valid and (t - self.can_yaw_rate_ts) < 0.1
+          can_yaw_ok = (
+            can_yaw_fresh and
+            self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and
+            self.observed_speed > CAN_YAW_RATE_MIN_SPEED and
+            np.radians(1.0) < abs(self.can_yaw_rate) < CAN_YAW_RATE_MAX
+          )
+
+          if can_yaw_ok:
+            mixed_yaw_rate = -self.can_yaw_rate  # Negate to match native IMU convention (left-negative)
+            mixed_std = CAN_YAW_RATE_OBS_STD
+          else:
+            # Fallback to native IMU observation
+            mixed_yaw_rate = -self.observed_yaw_rate
+            mixed_std = yaw_rate_std
+
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_FRAME_YAW_RATE,
-                                      np.array([[-self.observed_yaw_rate]]),
-                                      np.array([np.atleast_2d(yaw_rate_std**2)]))
+                                      np.array([[mixed_yaw_rate]]),
+                                      np.array([np.atleast_2d(mixed_std**2)]))
+          # ==================================================================
 
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_ROLL,
@@ -139,25 +163,16 @@ class VehicleParamsLearner:
       self.observed_speed = msg.vEgo
       self.active = self.observed_speed > MIN_ACTIVE_SPEED and in_linear_region
 
+      # === Core: Safely read and cache CAN YawRate (Do NOT observe EKF here) ===
+      self.can_yaw_rate_valid = hasattr(msg, 'yawRate')
+      if self.can_yaw_rate_valid:
+        self.can_yaw_rate = float(msg.yawRate)
+        self.can_yaw_rate_ts = t
+      # =========================================================================
+
       if self.active:
         self.kf.predict_and_observe(t, ObservationKind.STEER_ANGLE, np.array([[np.radians(steering_angle)]]))
         self.kf.predict_and_observe(t, ObservationKind.ROAD_FRAME_X_SPEED, np.array([[self.observed_speed]]))
-
-        # Add CAN Yaw Rate Observation
-        if self.CP.carFingerprint == 'BUICK_ENVISION_SDGM' and self.observed_speed > CAN_YAW_RATE_MIN_SPEED:
-          can_yaw_rate = getattr(msg, 'yawRate', 0.0)
-          
-          # Filter out noise and outliers: > 1.0 deg/s (deadzone) and < 60.0 deg/s
-          if np.radians(1.0) < abs(can_yaw_rate) < CAN_YAW_RATE_MAX:
-            self.kf.predict_and_observe(
-              t, 
-              ObservationKind.ROAD_FRAME_YAW_RATE,
-              # Negate the value to match native IMU convention (left-negative)
-              np.array([[-can_yaw_rate]]), 
-              # Use high confidence to suppress IMU noise
-              np.array([np.atleast_2d(CAN_YAW_RATE_OBS_STD ** 2)])
-            )
-        # End Add
 
     if not self.active:
       # Reset time when stopped so uncertainty doesn't grow
