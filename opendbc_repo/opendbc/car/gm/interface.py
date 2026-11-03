@@ -268,8 +268,14 @@ class CarInterface(CarInterfaceBase):
       def torque_from_lateral_accel_envision(lateral_acceleration: float, torque_params: structs.CarParams.LateralTorqueTuning):
         a, b, c, d = get_envision_dynamic_params(self._envision_v_ego_filt)
         sig_input = a * lateral_acceleration
-        sig = np.sign(sig_input) * (1 / (1 + exp(-fabs(sig_input))) - 0.5)
-        return float(sig * b + lateral_acceleration * c + d)
+        sig = np.sign(sig_input) * (1 / (1 + np.exp(-fabs(sig_input))) - 0.5)
+        
+        # This completely cuts off the high-frequency noise amplification near the center,
+        # without creating any step discontinuities (no slope jumps).
+        c_fade = np.interp(abs(lateral_acceleration), [0.0, 0.2], [0.0, 1.0])
+        
+        steer_torque = sig * b + lateral_acceleration * c * c_fade + d
+        return float(steer_torque)
       return torque_from_lateral_accel_envision
 
     if get_nonlinear_torque_params(self.CP.carFingerprint) is not None:
