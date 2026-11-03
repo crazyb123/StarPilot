@@ -163,6 +163,17 @@ class LatControlTorque(LatControl):
     if self.is_honda_accord:
       self.pid._k_p = [self.pid._k_p[0], [*self.pid._k_p[1][:-1], HONDA_ACCORD_TORQUE_KP]]
       self.pid._k_i = [self.pid._k_i[0], [HONDA_ACCORD_TORQUE_KI] * len(self.pid._k_i[1])]
+    # ==================== Envision Specific Tuning ====================
+    self.is_envision = CP.carFingerprint == "BUICK_ENVISION_SDGM"
+    if self.is_envision:
+      # Note: Below 11km/h (approx 3m/s) lateral control is not active, so early gains are just placeholders.
+      # The stock KP at 18~36km/h (5~10 m/s) is 11.5 and 3.5, which over-amplifies IMU noise from SUV suspension rebound.
+      # We cut down the mid-to-high speed KP dramatically to eliminate the neurotic twitching during corner exit.
+      self.pid._k_p = [
+        [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s) / 车速网格 (保持原厂)
+        [250, 120, 65, 18.0, 8.0, 3.5, 1.5, 0.8, 0.56]  # Smoothed KP values / 平顺版 KP，高速由 0.56 兜底
+      ]
+    # ================================================================
     if self.is_palisade:
       self.torque_params.latAccelFactor *= PALISADE_BASE_LAT_ACCEL_FACTOR_MULT
     if self.is_ioniq_5:
