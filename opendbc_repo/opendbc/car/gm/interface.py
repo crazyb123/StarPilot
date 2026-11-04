@@ -525,7 +525,7 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.BUICK_ENVISION_SDGM:
       ret.minEnableSpeed = -1.  # engage speed is decided by pcm
       ret.steerActuatorDelay = 0.2
-      ret.minSteerSpeed = 3 * CV.MPH_TO_MS
+      ret.minSteerSpeed = 3.5 * CV.MPH_TO_MS
       CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
     elif candidate in (CAR.BUICK_LACROSSE, CAR.BUICK_LACROSSE_ASCM, CAR.BUICK_LACROSSE_ASCM_19US):
