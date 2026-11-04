@@ -170,8 +170,8 @@ class LatControlTorque(LatControl):
       # The stock KP at 18~36km/h (5~10 m/s) is 11.5 and 3.5, which over-amplifies IMU noise from SUV suspension rebound.
       # We cut down the mid-to-high speed KP dramatically to eliminate the neurotic twitching during corner exit.
       self.pid._k_p = [
-        [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s) / 车速网格 (保持原厂)
-        [250, 120, 65, 18.0, 8.0, 3.5, 1.5, 0.8, 0.56]  # Smoothed KP values / 平顺版 KP，高速由 0.56 兜底
+        [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s)
+        [25, 20, 18.0, 18.0, 8.0, 3.5, 1.5, 0.8, 0.58]  # Smoothed KP values
       ]
     # ================================================================
     if self.is_palisade:
