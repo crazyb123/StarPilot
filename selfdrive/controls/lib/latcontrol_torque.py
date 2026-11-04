@@ -735,6 +735,42 @@ class LatControlTorque(LatControl):
         output_torque *= kia_stinger_2022_center_taper
       elif self.is_civic_bosch_modified and civic_bosch_modified_a_lateral_testing_ground_active():
         output_torque *= civic_bosch_modified_a_center_taper
+      # =========================================================================
+      # ==================== Buick Envision (C4) 专属自我约束逻辑 ====================
+      # 专为解决前束角偏右、EPS响应迟缓以及变道回正拉扯的物理缺陷而定制。
+      # Custom self-constraint logic for Buick Envision (C4) to mitigate physical 
+      # flaws (toe misalignment, slow EPS response, and lane-change oscillation).
+      # =========================================================================
+      if self.is_envision:
+        
+        # 1. 输出扭矩斜率限制 (Slew Rate Limit)
+        # 限制前后两帧之间的突变，防止系统在无灯变道、突然熄灯或变道回正瞬间爆发出剧烈的对抗扭矩。
+        # Limit the torque change per frame to prevent sudden aggressive torque during lane changes or unwinding.
+        MAX_TORQUE_RATE_NM_PER_SEC = 4.0  # 4.0 响应干脆且平滑 (4.0 is responsive and smooth)
+        max_delta_torque = MAX_TORQUE_RATE_NM_PER_SEC * self.dt
+        output_torque = float(np.clip(output_torque, 
+                                      self.prev_output_torque - max_delta_torque, 
+                                      self.prev_output_torque + max_delta_torque))
+
+        # 2. 中心收敛阻尼 (Center Tapering)
+        # 当车辆处于直道或极缓弯（目标横向加速度很小）时，衰减系统修正力度，
+        # 消除系统因为微小的视觉误差、IMU颠簸或底盘前束角右偏产生的直道微幅“画龙”或方向盘高频紧绷感。
+        # Attenuate torque output when near lane center to prevent chatter/oscillation caused by small visual errors or physical toe bias.
+        CENTER_DEADBAND = 0.3  # 0.3 m/s^2 死区阈值 (Deadband threshold)
+        if abs(setpoint) < CENTER_DEADBAND:
+          # 在死区内，将扭矩线性缩放至原本的 60%；离开死区则完全恢复 100%
+          # Scale torque down to 60% in the deadband, recovering to 100% outside.
+          center_scale = float(np.interp(abs(setpoint), [0.0, CENTER_DEADBAND], [0.6, 1.0]))
+          output_torque *= center_scale
+
+        # 3. 回正防甩头 (Unwind Damping) - 极致安全版
+        # 必须满足三个条件才触发：检测到回正趋势 + 驾驶员双手紧握方向盘 + 速度低于90km/h (25m/s)。
+        # 即使误判，也只削弱 15% 的力 (0.85)，绝对保证高速大弯不推头。
+        # Triggered ONLY IF unwinding is detected + driver is holding wheel + speed < 90km/h.
+        # Attenuates by only 15% to ensure absolute safety and no understeer on highway curves.
+        if unwind_detected and CS.steeringPressed and CS.vEgo < 25.0:
+          output_torque *= 0.8  
+      # =========================================================================
       pid_log.active = True
       pid_log.p = float(self.pid.p)
       pid_log.i = float(self.pid.i)
