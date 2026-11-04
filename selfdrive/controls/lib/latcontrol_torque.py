@@ -763,11 +763,18 @@ class LatControlTorque(LatControl):
           center_scale = float(np.interp(abs(setpoint), [0.0, CENTER_DEADBAND], [0.6, 1.0]))
           output_torque *= center_scale
 
+          # 【极致防御】同步软化积分器，防止死区内积分过载（憋大招）
+          # 必须与输出扭矩同比例打折，防止退出死区时积分器瞬间倾泻导致方向盘抽搐。
+          # [Extreme Defense] Soften integrator synchronously to prevent integral windup in the deadband.
+          # Must be scaled proportionally with the output torque to prevent a sudden integral dump 
+          # causing steering wheel jerk upon exiting the deadband.
+          self.pid.i *= center_scale 
+
         # 3. 回正防甩头 (Unwind Damping) - 极致安全版
         # 必须满足三个条件才触发：检测到回正趋势 + 驾驶员双手紧握方向盘 + 速度低于90km/h (25m/s)。
-        # 即使误判，也只削弱 15% 的力 (0.85)，绝对保证高速大弯不推头。
+        # 即使误判，也只削弱 20% 的力 (0.8)，绝对保证高速大弯不推头。
         # Triggered ONLY IF unwinding is detected + driver is holding wheel + speed < 90km/h.
-        # Attenuates by only 15% to ensure absolute safety and no understeer on highway curves.
+        # Attenuates by only 20% to ensure absolute safety and no understeer on highway curves.
         if unwind_detected and CS.steeringPressed and CS.vEgo < 25.0:
           output_torque *= 0.8  
       # =========================================================================
