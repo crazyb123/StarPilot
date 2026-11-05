@@ -171,7 +171,7 @@ class LatControlTorque(LatControl):
       # We cut down the mid-to-high speed KP dramatically to eliminate the neurotic twitching during corner exit.
       self.pid._k_p = [
         [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s)
-        [25, 20, 18.0, 18.0, 8.0, 3.1, 1.2, 0.7, 0.58]  # Smoothed KP values (ori 25, 20, 18.0, 18.0, 8.0, 3.5, 1.5, 0.8, 0.58)
+        [25, 20, 18.0, 18.0, 8.0, 3.1, 1.3, 0.7, 0.58]  # Smoothed KP values (ori 25, 20, 18.0, 18.0, 8.0, 3.5, 1.5, 0.8, 0.58)
       ]
     # ================================================================
     if self.is_palisade:
