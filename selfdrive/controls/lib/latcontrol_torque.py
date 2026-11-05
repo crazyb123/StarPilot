@@ -171,7 +171,7 @@ class LatControlTorque(LatControl):
       # We cut down the mid-to-high speed KP dramatically to eliminate the neurotic twitching during corner exit.
       self.pid._k_p = [
         [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s)
-        [25, 20, 18.0, 18.0, 8.0, 3.5, 1.5, 0.8, 0.58]  # Smoothed KP values
+        [25, 20, 18.0, 18.0, 8.0, 3.1, 1.2, 0.7, 0.58]  # Smoothed KP values (ori 25, 20, 18.0, 18.0, 8.0, 3.5, 1.5, 0.8, 0.58)
       ]
     # ================================================================
     if self.is_palisade:
@@ -746,7 +746,7 @@ class LatControlTorque(LatControl):
         # 1. 输出扭矩斜率限制 (Slew Rate Limit)
         # 限制前后两帧之间的突变，防止系统在无灯变道、突然熄灯或变道回正瞬间爆发出剧烈的对抗扭矩。
         # Limit the torque change per frame to prevent sudden aggressive torque during lane changes or unwinding.
-        MAX_TORQUE_RATE_NM_PER_SEC = 4.0  # 4.0 响应干脆且平滑 (4.0 is responsive and smooth)
+        MAX_TORQUE_RATE_NM_PER_SEC = 5.0  # 4.0 响应干脆且平滑 (4.0 is responsive and smooth)
         max_delta_torque = MAX_TORQUE_RATE_NM_PER_SEC * self.dt
         output_torque = float(np.clip(output_torque, 
                                       self.prev_output_torque - max_delta_torque, 
