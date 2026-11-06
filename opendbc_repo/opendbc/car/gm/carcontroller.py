@@ -908,13 +908,14 @@ class CarController(CarControllerBase):
       # High-frequency polling: send both 1A 01 and 1A 02 every 10 frames (100ms) for redundancy.
       if self.frame % 25 == 0:
         # 轰炸 01 包
-        can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
+        can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0)) # 请求单帧 01 包
         # 轰炸 02 包
-        can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
-        # 发送流控帧 (Flow Control)，允许模块把剩下的 21 个字节连续吐出来
+        can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0)) # 请求多帧 02 包
+        # 绝杀时序：在索要后的第 1 帧（延时 10ms），精准投递流控帧和保活心跳
+      if self.frame % 25 == 1:
+        # 此时模块刚好吐出 02 包的首帧，我们秒回流控帧，允许模块倾泻剩下的 21 个字节！
         can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
-        
-        # Tester Present (3E 80) 保活，防止网关掐断连接
+        # 完美跟上保活心跳（3E 80），死死锁住连接
         can_sends.append((0x25F, b"\x02\x3E\x80\x00\x00\x00\x00\x00", 0))
     # --------------------------------------------------------
     
