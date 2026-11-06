@@ -370,9 +370,8 @@ static void gm_rx_hook(const CANPacket_t *msg) {
 static bool gm_tx_hook(const CANPacket_t *msg) {
   bool tx = true;
 
-  // 终极放行：放行 0x25F 诊断请求，同时为了防止多帧流控帧被 Panda 拦截，把 0x250~0x260 频段及 0x65F 全部放行！
-  // Release the TX permission for BSM diagnostics and network layer flow control
-  if (msg->addr == 0x25FU || msg->addr == 0x65FU || msg->addr == 0x101U) {
+  // 只放行发给网关的唤醒 (0x101) 和 诊断请求/流控 (0x25F)
+  if (msg->addr == 0x25FU || msg->addr == 0x101U) {
     return true;
   }
 
@@ -520,7 +519,7 @@ static bool gm_tx_hook(const CANPacket_t *msg) {
 
 static bool gm_fwd_hook(int bus_num, int addr) {
   // =================================================================
-  if (addr == 0x25F || addr == 0x65F || addr == 0x101) {
+  if (addr == 0x25F || addr == 0x101) {
     return false; // 在 fwd_hook 中，返回 false 代表“不拦截/放行转发”！
   }
   //==================================================================  
