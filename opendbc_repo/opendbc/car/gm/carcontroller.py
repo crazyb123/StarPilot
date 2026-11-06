@@ -1,5 +1,6 @@
 import math
 import numpy as np
+from cereal import car
 from opendbc.can import CANPacker
 from opendbc.car import ACCELERATION_DUE_TO_GRAVITY, Bus, DT_CTRL, create_gas_interceptor_command, structs
 from opendbc.car.lateral import apply_driver_steer_torque_limits
@@ -893,6 +894,25 @@ class CarController(CarControllerBase):
 
     # Send CAN commands.
     can_sends = []
+
+    # --- 添加 BSM 双包轮询逻辑 (BSM Dual-Packet Polling) ---
+    # 仅在开启了 BSM 功能时发送诊断请求
+    # Only send diagnostic requests when BSM is enabled
+    if self.CP.enableBsm:
+      # 1. 维持扩展会话：每 50 帧（500ms）发送一次 10 02
+      # Maintain extended session: send 10 02 every 50 frames (~500ms)
+      if self.frame % 50 == 0:
+        can_sends.append(car.CanData(address=0x7C6, dat=b"\x02\x10\x02\x00\x00\x00\x00\x00", bus=0))
+      
+      # 2. 高频轮询状态：每 10 帧（100ms）并发出击，01包和02包一起要！
+      # High-frequency polling: send both 1A 01 and 1A 02 every 10 frames (100ms) for redundancy.
+      if self.frame % 10 == 0:
+        # 轰炸 01 包
+        can_sends.append(car.CanData(address=0x7C6, dat=b"\x02\x1A\x01\x00\x00\x00\x00\x00", bus=0))
+        # 轰炸 02 包
+        can_sends.append(car.CanData(address=0x7C6, dat=b"\x02\x1A\x02\x00\x00\x00\x00\x00", bus=0))
+    # --------------------------------------------------------
+    
     malibu_cancel_requested = False
     malibu_oem_button_slot = False
     if self.CP.carFingerprint == CAR.CHEVROLET_MALIBU_HYBRID_CC:
