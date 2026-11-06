@@ -372,7 +372,7 @@ static bool gm_tx_hook(const CANPacket_t *msg) {
 
   // 终极放行：放行 0x25F 诊断请求，同时为了防止多帧流控帧被 Panda 拦截，把 0x250~0x260 频段及 0x65F 全部放行！
   // Release the TX permission for BSM diagnostics and network layer flow control
-  if (msg->addr == 0x25FU || msg->addr == 0x65FU) {
+  if (msg->addr == 0x25FU || msg->addr == 0x65FU || msg->addr == 0x101U) {
     return true;
   }
 
@@ -520,7 +520,7 @@ static bool gm_tx_hook(const CANPacket_t *msg) {
 
 static bool gm_fwd_hook(int bus_num, int addr) {
   // =================================================================
-  if (addr == 0x25F || addr == 0x65F) {
+  if (addr == 0x25F || addr == 0x65F || addr == 0x101) {
     return false; // 在 fwd_hook 中，返回 false 代表“不拦截/放行转发”！
   }
   //==================================================================  
@@ -654,6 +654,7 @@ static safety_config gm_init(uint16_t param) {
                                            {0x1E1, 2, 7, .check_relay = false}, {0x184, 2, 8, .check_relay = false},  // camera bus
                                            {0x200, 0, 6, .check_relay = false},
                                            {0x1E1, 0, 7, .check_relay = false},
+                                           {0x101, 0, 8, .check_relay = false}, // 新增：放行网关唤醒
                                            {0x25F, 0, 8, .check_relay = false}, // BSM SDGM
                                            {0xBD, 0, 7, .check_relay = false}, {0x1F5, 0, 8, .check_relay = false}};  // pt bus
   static const CanMsg GM_SDGM_VOLT_AUTO_HOLD_TX_MSGS[] = {{0x180, 0, 4, .check_relay = true}, {0x370, 0, 6, .check_relay = false}, {0x3D1, 0, 8, .check_relay = false},  // pt bus
