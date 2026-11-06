@@ -902,15 +902,15 @@ class CarController(CarControllerBase):
       # 1. 维持扩展会话：每 100 帧（1000ms）发送一次 10 02
       # Maintain extended session: send 10 02 every 50 frames (~500ms)
       if self.frame % 100 == 0:
-        can_sends.append(structs.CanData(0x7C6, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
+        can_sends.append((0x7C6, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
       
       # 2. 高频轮询状态：每 25 帧（250ms）并发出击，01包和02包一起要！
       # High-frequency polling: send both 1A 01 and 1A 02 every 10 frames (100ms) for redundancy.
       if self.frame % 25 == 0:
         # 轰炸 01 包
-        can_sends.append(structs.CanData(0x7C6, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
+        can_sends.append((0x7C6, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
         # 轰炸 02 包
-        can_sends.append(structs.CanData(0x7C6, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
+        can_sends.append((0x7C6, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
     # --------------------------------------------------------
     
     malibu_cancel_requested = False
