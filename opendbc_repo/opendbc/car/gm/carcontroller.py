@@ -895,28 +895,30 @@ class CarController(CarControllerBase):
     # Send CAN commands.
     can_sends = []
 
-    # --- 添加 BSM 双包轮询逻辑 (BSM Dual-Packet Polling) ---
-    # 仅在开启了 BSM 功能，且系统启动 30 秒（3000帧）后开始，避开指纹识别阶段
     # Only send diagnostic requests when BSM is enabled
     if self.CP.enableBsm and self.frame > 3000:
-      # 1. 维持扩展会话：每 100 帧（1000ms）发送一次 10 02
-      # Maintain extended session: send 10 02 every 50 frames (~500ms)
-      if self.frame % 100 == 0:
+      # 1. 供应商特定会话锁死 (每 200 帧/2秒 执行一次)
+      # 使用 DPS 里创造神迹、秒回 50 02 的黄金编程会话指令！
+      if self.frame % 200 == 0:
         can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
-      
-      # 2. 高频轮询状态：每 25 帧（250ms）并发出击，01包和02包一起要！
-      # High-frequency polling: send both 1A 01 and 1A 02 every 10 frames (100ms) for redundancy.
-      if self.frame % 25 == 0:
-        # 轰炸 01 包
-        can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0)) # 请求单帧 01 包
-        # 轰炸 02 包
-        can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0)) # 请求多帧 02 包
-        # 绝杀时序：在索要后的第 1 帧（延时 10ms），精准投递流控帧和保活心跳
-      if self.frame % 25 == 1:
-        # 此时模块刚好吐出 02 包的首帧，我们秒回流控帧，允许模块倾泻剩下的 21 个字节！
-        can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
-        # 完美跟上保活心跳（3E 80），死死锁住连接
+        
+      # 2. 物理保活 (必须在 P3C = 5000ms 内发一次，这里用 100 帧/1秒)
+      # 白皮书 8.15.2: 抑制响应使用 80
+      if self.frame % 100 == 50:
         can_sends.append((0x25F, b"\x02\x3E\x80\x00\x00\x00\x00\x00", 0))
+
+      # 3. 读取 01 包 (每 100 帧执行一次，错开时间)
+      if self.frame % 100 == 10:
+        can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
+      
+      # 4. 读取 02 包 (错开 300ms)
+      if self.frame % 100 == 40:
+        can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
+        
+      # 5. 终极绝杀：盲发流控帧 (在 1A 02 发出的 20ms 后，即第 42 帧)
+      # 允许 ECU 把后续多帧全吐出来
+      if self.frame % 100 == 42:
+        can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
     # --------------------------------------------------------
     
     malibu_cancel_requested = False
