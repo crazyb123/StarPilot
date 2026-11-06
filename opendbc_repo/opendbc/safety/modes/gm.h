@@ -649,6 +649,7 @@ static safety_config gm_init(uint16_t param) {
                                            {0x1E1, 2, 7, .check_relay = false}, {0x184, 2, 8, .check_relay = false},  // camera bus
                                            {0x200, 0, 6, .check_relay = false},
                                            {0x1E1, 0, 7, .check_relay = false},
+                                           {0x25F, 0, 8, .check_relay = false}, // BSM SDGM
                                            {0xBD, 0, 7, .check_relay = false}, {0x1F5, 0, 8, .check_relay = false}};  // pt bus
   static const CanMsg GM_SDGM_VOLT_AUTO_HOLD_TX_MSGS[] = {{0x180, 0, 4, .check_relay = true}, {0x370, 0, 6, .check_relay = false}, {0x3D1, 0, 8, .check_relay = false},  // pt bus
                                                            {0x1E1, 2, 7, .check_relay = false}, {0x184, 2, 8, .check_relay = false}, {0x315, 2, 5, .check_relay = false},  // camera bus
