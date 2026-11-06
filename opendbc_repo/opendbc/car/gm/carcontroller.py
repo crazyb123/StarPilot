@@ -1,6 +1,5 @@
 import math
 import numpy as np
-from cereal import car
 from opendbc.can import CANPacker
 from opendbc.car import ACCELERATION_DUE_TO_GRAVITY, Bus, DT_CTRL, create_gas_interceptor_command, structs
 from opendbc.car.lateral import apply_driver_steer_torque_limits
@@ -894,31 +893,6 @@ class CarController(CarControllerBase):
 
     # Send CAN commands.
     can_sends = []
-
-    # Only send diagnostic requests when BSM is enabled
-    if self.CP.enableBsm and self.frame > 3000:
-      
-      # 1. 唤醒网关（开启跨网段路由）
-      if self.frame % 200 == 0:
-        can_sends.append((0x101, b"\xFD\x02\x10\x04\x00\x00\x00\x00", 0)) 
-
-      # 2. 进入扩展会话 (DPS 里的 10 02)
-      if self.frame % 100 == 10:
-        can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
-
-      # 3. 请求 DID 01 (单帧)
-      if self.frame % 100 == 20:
-        can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
-
-      # 4. 请求 DID 02 (多帧，长报文)
-      if self.frame % 100 == 30:
-        can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
-        
-      # 5. 🌟 绝杀流控帧：必须发到 0x25F 上！(必须在 1A 02 之后发)
-      if self.frame % 100 == 32:
-        can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
-    # --------------------------------------------------------
-    
     malibu_cancel_requested = False
     malibu_oem_button_slot = False
     if self.CP.carFingerprint == CAR.CHEVROLET_MALIBU_HYBRID_CC:
