@@ -897,24 +897,25 @@ class CarController(CarControllerBase):
 
     # Only send diagnostic requests when BSM is enabled
     if self.CP.enableBsm and self.frame > 3000:
-      # 🌟 1. 敲开网关大门！(全局请求 0x101, 发送 10 04)
+      # 1. 敲开网关大门！(注意：第一个字节是 FD 扩展地址，不是 02)
       if self.frame % 200 == 0:
-        can_sends.append((0x101, b"\x02\x10\x04\x00\x00\x00\x00\x00", 0)) # 唤醒跨网段路由
-        can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0)) # 进 BSM 扩展会话
+        # 目标网关(0x101) + 扩展地址FD + 长度02 + 服务10 + 子功能04
+        can_sends.append((0x101, b"\xFD\x02\x10\x04\x00\x00\x00\x00", 0)) 
+        can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
         
-      # 2. 物理保活 (3E 80)
+      # 物理保活
       if self.frame % 100 == 50:
         can_sends.append((0x25F, b"\x02\x3E\x80\x00\x00\x00\x00\x00", 0))
 
-      # 3. 读取 01 包 (单帧)
+      # 1A 01
       if self.frame % 100 == 10:
         can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
       
-      # 4. 读取 02 包 (多帧)
+      # 1A 02
       if self.frame % 100 == 20:
         can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
         
-      # 5. 盲发流控帧 (允许模块吐出剩下的 21 字节)
+      # 流控帧
       if self.frame % 100 == 22:
         can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
     # --------------------------------------------------------
