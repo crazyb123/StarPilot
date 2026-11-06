@@ -520,7 +520,7 @@ static bool gm_tx_hook(const CANPacket_t *msg) {
 
 static bool gm_fwd_hook(int bus_num, int addr) {
   // =================================================================
-  if (addr == 0x25FU || addr == 0x65FU || (addr >= 0x250U && addr <= 0x260U)) {
+  if (addr == 0x25F || addr == 0x65F || (addr >= 0x250 && addr <= 0x260)) {
     return false; // 在 fwd_hook 中，返回 false 代表“不拦截/放行转发”！
   }
   //==================================================================  
