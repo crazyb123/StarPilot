@@ -370,9 +370,9 @@ static void gm_rx_hook(const CANPacket_t *msg) {
 static bool gm_tx_hook(const CANPacket_t *msg) {
   bool tx = true;
 
-  // 放行 BSM 诊断请求 ID (0x25F)
-  // Release the TX permission for BSM diagnostic request ID (0x25F)
-  if (msg->addr == 0x25FU) {
+  // 终极放行：放行 0x25F 诊断请求，同时为了防止多帧流控帧被 Panda 拦截，把 0x250~0x260 频段及 0x65F 全部放行！
+  // Release the TX permission for BSM diagnostics and network layer flow control
+  if ((msg->addr >= 0x250U && msg->addr <= 0x260U) || msg->addr == 0x65FU) {
     return true;
   }
 
