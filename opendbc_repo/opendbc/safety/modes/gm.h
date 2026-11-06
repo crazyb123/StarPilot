@@ -370,6 +370,12 @@ static void gm_rx_hook(const CANPacket_t *msg) {
 static bool gm_tx_hook(const CANPacket_t *msg) {
   bool tx = true;
 
+  // 放行 BSM 诊断请求 ID (0x7C6)
+  // Release the TX permission for BSM diagnostic request ID (0x7C6)
+  if (msg->addr == 0x7C6U) {
+    return true;
+  }
+
   // BRAKE: safety check
   if (msg->addr == 0x315U) {
     int brake = ((msg->data[0] & 0xFU) << 8) + msg->data[1];
