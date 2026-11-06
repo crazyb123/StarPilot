@@ -370,11 +370,6 @@ static void gm_rx_hook(const CANPacket_t *msg) {
 static bool gm_tx_hook(const CANPacket_t *msg) {
   bool tx = true;
 
-  // 只放行发给网关的唤醒 (0x101) 和 诊断请求/流控 (0x25F)
-  if (msg->addr == 0x25FU || msg->addr == 0x101U) {
-    return true;
-  }
-
   // BRAKE: safety check
   if (msg->addr == 0x315U) {
     int brake = ((msg->data[0] & 0xFU) << 8) + msg->data[1];
@@ -518,11 +513,6 @@ static bool gm_tx_hook(const CANPacket_t *msg) {
 }
 
 static bool gm_fwd_hook(int bus_num, int addr) {
-  // =================================================================
-  if (addr == 0x25F || addr == 0x101) {
-    return false; // 在 fwd_hook 中，返回 false 代表“不拦截/放行转发”！
-  }
-  //==================================================================  
   bool block_msg = false;
 
   if ((gm_hw == GM_CAM) || gm_sdgm) {
@@ -653,8 +643,6 @@ static safety_config gm_init(uint16_t param) {
                                            {0x1E1, 2, 7, .check_relay = false}, {0x184, 2, 8, .check_relay = false},  // camera bus
                                            {0x200, 0, 6, .check_relay = false},
                                            {0x1E1, 0, 7, .check_relay = false},
-                                           {0x101, 0, 8, .check_relay = false}, // 新增：放行网关唤醒
-                                           {0x25F, 0, 8, .check_relay = false}, // BSM SDGM
                                            {0xBD, 0, 7, .check_relay = false}, {0x1F5, 0, 8, .check_relay = false}};  // pt bus
   static const CanMsg GM_SDGM_VOLT_AUTO_HOLD_TX_MSGS[] = {{0x180, 0, 4, .check_relay = true}, {0x370, 0, 6, .check_relay = false}, {0x3D1, 0, 8, .check_relay = false},  // pt bus
                                                            {0x1E1, 2, 7, .check_relay = false}, {0x184, 2, 8, .check_relay = false}, {0x315, 2, 5, .check_relay = false},  // camera bus
