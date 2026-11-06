@@ -897,27 +897,25 @@ class CarController(CarControllerBase):
 
     # Only send diagnostic requests when BSM is enabled
     if self.CP.enableBsm and self.frame > 3000:
-      # 1. 供应商特定会话锁死 (每 200 帧/2秒 执行一次)
-      # 使用 DPS 里创造神迹、秒回 50 02 的黄金编程会话指令！
+      # 🌟 1. 敲开网关大门！(全局请求 0x101, 发送 10 04)
       if self.frame % 200 == 0:
-        can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0))
+        can_sends.append((0x101, b"\x02\x10\x04\x00\x00\x00\x00\x00", 0)) # 唤醒跨网段路由
+        can_sends.append((0x25F, b"\x02\x10\x02\x00\x00\x00\x00\x00", 0)) # 进 BSM 扩展会话
         
-      # 2. 物理保活 (必须在 P3C = 5000ms 内发一次，这里用 100 帧/1秒)
-      # 白皮书 8.15.2: 抑制响应使用 80
+      # 2. 物理保活 (3E 80)
       if self.frame % 100 == 50:
         can_sends.append((0x25F, b"\x02\x3E\x80\x00\x00\x00\x00\x00", 0))
 
-      # 3. 读取 01 包 (每 100 帧执行一次，错开时间)
+      # 3. 读取 01 包 (单帧)
       if self.frame % 100 == 10:
         can_sends.append((0x25F, b"\x02\x1A\x01\x00\x00\x00\x00\x00", 0))
       
-      # 4. 读取 02 包 (错开 300ms)
-      if self.frame % 100 == 40:
+      # 4. 读取 02 包 (多帧)
+      if self.frame % 100 == 20:
         can_sends.append((0x25F, b"\x02\x1A\x02\x00\x00\x00\x00\x00", 0))
         
-      # 5. 终极绝杀：盲发流控帧 (在 1A 02 发出的 20ms 后，即第 42 帧)
-      # 允许 ECU 把后续多帧全吐出来
-      if self.frame % 100 == 42:
+      # 5. 盲发流控帧 (允许模块吐出剩下的 21 字节)
+      if self.frame % 100 == 22:
         can_sends.append((0x25F, b"\x30\x00\x00\x00\x00\x00\x00\x00", 0))
     # --------------------------------------------------------
     
