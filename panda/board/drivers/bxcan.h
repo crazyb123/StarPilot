@@ -1,4 +1,5 @@
 #include "bxcan_declarations.h"
+#include "../power_saving_declarations.h"  // add new
 
 // IRQs: CAN1_TX, CAN1_RX0, CAN1_SCE
 //       CAN2_TX, CAN2_RX0, CAN2_SCE
@@ -212,6 +213,14 @@ bool can_init(uint8_t can_number) {
     CAN_TypeDef *CANx = CANIF_FROM_CAN_NUM(can_number);
     ret &= can_set_speed(can_number);
     ret &= llcan_init(CANx);
+    // add new
+    #if !defined(PANDA_BODY) && !defined(PANDA_JUNGLE)
+    // Reinitialization must not leave IRQs running on powered-down transceivers.
+    if (power_save_status == POWER_SAVE_STATUS_ENABLED) {
+      set_power_save_state(POWER_SAVE_STATUS_ENABLED);
+    }
+    #endif
+    // add end
     // in case there are queued up messages
     process_can(can_number);
   }
