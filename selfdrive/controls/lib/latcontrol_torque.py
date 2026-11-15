@@ -753,10 +753,8 @@ class LatControlTorque(LatControl):
       #    only smooths LatControl's internal prev_output_torque and logs; it does
       #    not change the final CAN command.
       # 2) Center taper. Hard gate at deadband; inside the band scale output and
-      #    integrator together so the integrator cannot wind up and dump on exit.
-      #    freeze_integrator is defined later in update(), so this decay is
-      #    intentionally independent of it; it is a center-band anti-windup
-      #    measure, not a replacement for freeze.
+      #    integrator by the same factor each frame, so the integrator is drained
+      #    at the same rate as the output and cannot accumulate across frames.
       # 3) Unwind damping: only when unwinding, driver holding wheel, and <90 km/h.
       # =========================================================================
       if self.is_envision:
