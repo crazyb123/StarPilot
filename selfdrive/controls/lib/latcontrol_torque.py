@@ -81,7 +81,10 @@ FF_ROLL_OFFSET_FADE_V = [0.0, 1.0]
 ENVISION_MAX_TORQUE_RATE = 5.0  # normalized torque units per second; output_torque is -1..1, NOT Nm
 ENVISION_CENTER_DEADBAND_LAT_ACCEL = 0.3  # m/s^2
 ENVISION_CENTER_MIN_SCALE = 0.6  # dimensionless
-ENVISION_CENTER_I_DECAY_POWER = 0.1  # per-frame i *= center_scale**power; half-life ~13.5 frames @100Hz
+# 1.0 = verified default, matches the version road-tested for hundreds of km.
+# i *= center_scale every frame, same rate as output taper, so the integrator
+# cannot wind up in the center band. <1.0 is a future A/B knob, not enabled.
+ENVISION_CENTER_I_DECAY_POWER = 1.0
 ENVISION_UNWIND_OUTPUT_SCALE = 0.8  # dimensionless
 ENVISION_UNWIND_MAX_SPEED_MPS = 25.0  # m/s; exactly 90 km/h (25 * 3.6)
 
@@ -744,12 +747,13 @@ class LatControlTorque(LatControl):
       elif self.is_civic_bosch_modified and civic_bosch_modified_a_lateral_testing_ground_active():
         output_torque *= civic_bosch_modified_a_center_taper
       # =========================================================================
-      # ==================== Buick Envision (C4) 专属自我约束逻辑 ====================
-      # 1) Slew-rate limit in normalized torque units.
-      #    output_torque is -1..1, not Nm. This smooths LatControl's internal
-      #    command/log; physical steer rate is still bounded by CarController
-      #    STEER_DELTA_UP/DOWN (much stricter than this).
-      # 2) Center taper. Scale output and soften the integrator near lane center.
+      # ==================== Buick Envision (C4) self-constraint =================
+      # 1) Slew-rate limit in normalized torque units. output_torque is -1..1,
+      #    NOT Nm. GM CarController STEER_DELTA_UP/DOWN is much stricter, so this
+      #    only smooths LatControl's internal prev_output_torque and logs; it does
+      #    not change the final CAN command.
+      # 2) Center taper. Hard gate at deadband; inside the band scale output and
+      #    integrator together so the integrator cannot wind up and dump on exit.
       #    freeze_integrator is defined later in update(), so this decay is
       #    intentionally independent of it; it is a center-band anti-windup
       #    measure, not a replacement for freeze.
