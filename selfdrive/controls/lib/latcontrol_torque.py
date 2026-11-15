@@ -83,7 +83,7 @@ ENVISION_CENTER_DEADBAND_LAT_ACCEL = 0.3  # m/s^2
 ENVISION_CENTER_MIN_SCALE = 0.6  # dimensionless
 ENVISION_CENTER_I_DECAY_POWER = 0.1  # per-frame i *= center_scale**power; half-life ~13.5 frames @100Hz
 ENVISION_UNWIND_OUTPUT_SCALE = 0.8  # dimensionless
-ENVISION_UNWIND_MAX_SPEED_MPS = 25.0  # m/s (~90 km/h)
+ENVISION_UNWIND_MAX_SPEED_MPS = 25.0  # m/s; exactly 90 km/h (25 * 3.6)
 
 
 class LatControlTorque(LatControl):
