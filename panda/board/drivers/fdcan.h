@@ -1,4 +1,5 @@
 #include "fdcan_declarations.h"
+#include "../power_saving_declarations.h"  // add new
 
 FDCAN_GlobalTypeDef *cans[PANDA_CAN_CNT] = {FDCAN1, FDCAN2, FDCAN3};
 
@@ -262,6 +263,14 @@ bool can_init(uint8_t can_number) {
     FDCAN_GlobalTypeDef *FDCANx = CANIF_FROM_CAN_NUM(can_number);
     ret &= can_set_speed(can_number);
     ret &= llcan_init(FDCANx);
+    // add new
+    #if !defined(PANDA_BODY) && !defined(PANDA_JUNGLE)
+    // Reinitialization must not leave IRQs running on powered-down transceivers.
+    if (power_save_status == POWER_SAVE_STATUS_ENABLED) {
+      set_power_save_state(POWER_SAVE_STATUS_ENABLED);
+    }
+    #endif
+    // add end
     // in case there are queued up messages
     process_can(can_number);
   }
