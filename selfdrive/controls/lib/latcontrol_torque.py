@@ -77,6 +77,15 @@ def get_center_chatter_friction_jerk_deadzone(v_ego, setpoint, vehicle_deadzone=
 FF_ROLL_OFFSET_FADE_BP = [0.5, 2.5]  # m/s
 FF_ROLL_OFFSET_FADE_V = [0.0, 1.0]
 
+# Envision C4 self-constraint
+ENVISION_MAX_TORQUE_RATE = 5.0  # normalized torque units per second; output_torque is -1..1, NOT Nm
+ENVISION_CENTER_DEADBAND_LAT_ACCEL = 0.3  # m/s^2
+ENVISION_CENTER_MIN_SCALE = 0.6  # dimensionless
+ENVISION_CENTER_I_DECAY_POWER = 0.1  # per-frame i *= center_scale**power; half-life ~13.5 frames @100Hz
+ENVISION_UNWIND_OUTPUT_SCALE = 0.8  # dimensionless
+ENVISION_UNWIND_MAX_SPEED_MPS = 25.0  # m/s (~90 km/h)
+
+
 class LatControlTorque(LatControl):
   def __init__(self, CP, CI, dt):
     super().__init__(CP, CI, dt)
@@ -163,6 +172,16 @@ class LatControlTorque(LatControl):
     if self.is_honda_accord:
       self.pid._k_p = [self.pid._k_p[0], [*self.pid._k_p[1][:-1], HONDA_ACCORD_TORQUE_KP]]
       self.pid._k_i = [self.pid._k_i[0], [HONDA_ACCORD_TORQUE_KI] * len(self.pid._k_i[1])]
+    # ==================== Envision Specific Tuning ====================
+    self.is_envision = CP.carFingerprint == "BUICK_ENVISION_SDGM"
+    if self.is_envision:
+      # Below ~3 m/s lateral control is inactive, so early gains are placeholders.
+      # The stock KP at 5-10 m/s over-amplifies IMU noise from SUV suspension rebound.
+      self.pid._k_p = [
+        [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30],       # Speed grid (m/s)
+        [25, 20, 18.0, 18.0, 8.0, 3.1, 1.3, 0.7, 0.58]  # Smoothed KP values
+      ]
+    # ================================================================
     if self.is_palisade:
       self.torque_params.latAccelFactor *= PALISADE_BASE_LAT_ACCEL_FACTOR_MULT
     if self.is_ioniq_5:
@@ -724,6 +743,38 @@ class LatControlTorque(LatControl):
         output_torque *= kia_stinger_2022_center_taper
       elif self.is_civic_bosch_modified and civic_bosch_modified_a_lateral_testing_ground_active():
         output_torque *= civic_bosch_modified_a_center_taper
+      # =========================================================================
+      # ==================== Buick Envision (C4) 专属自我约束逻辑 ====================
+      # 1) Slew-rate limit in normalized torque units.
+      #    output_torque is -1..1, not Nm. This smooths LatControl's internal
+      #    command/log; physical steer rate is still bounded by CarController
+      #    STEER_DELTA_UP/DOWN (much stricter than this).
+      # 2) Center taper. Scale output and soften the integrator near lane center.
+      #    freeze_integrator is defined later in update(), so this decay is
+      #    intentionally independent of it; it is a center-band anti-windup
+      #    measure, not a replacement for freeze.
+      # 3) Unwind damping: only when unwinding, driver holding wheel, and <90 km/h.
+      # =========================================================================
+      if self.is_envision:
+        max_delta_torque = ENVISION_MAX_TORQUE_RATE * self.dt
+        output_torque = float(np.clip(
+          output_torque,
+          self.prev_output_torque - max_delta_torque,
+          self.prev_output_torque + max_delta_torque,
+        ))
+
+        if abs(setpoint) < ENVISION_CENTER_DEADBAND_LAT_ACCEL:
+          center_scale = float(np.interp(
+            abs(setpoint),
+            [0.0, ENVISION_CENTER_DEADBAND_LAT_ACCEL],
+            [ENVISION_CENTER_MIN_SCALE, 1.0],
+          ))
+          output_torque *= center_scale
+          self.pid.i *= center_scale ** ENVISION_CENTER_I_DECAY_POWER
+
+        if unwind_detected and CS.steeringPressed and CS.vEgo < ENVISION_UNWIND_MAX_SPEED_MPS:
+          output_torque *= ENVISION_UNWIND_OUTPUT_SCALE
+      # =========================================================================
       pid_log.active = True
       pid_log.p = float(self.pid.p)
       pid_log.i = float(self.pid.i)
