@@ -79,7 +79,7 @@ NON_LINEAR_TORQUE_PARAMS = {
   # callers of get_lataccel_torque_siglin(). Real runtime path uses the
   # dynamic get_envision_dynamic_params() below.
   CAR.BUICK_ENVISION_SDGM: {
-    "left": [2.4, 0.98, 0.18, 0.0],
+    "left": [2.4, 0.98, 0.18, 0.1],
     "right": [2.4, 0.98, 0.18, 0.0],
   },
 }
