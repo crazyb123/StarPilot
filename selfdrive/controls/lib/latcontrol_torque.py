@@ -3,6 +3,7 @@ import numpy as np
 from collections import deque
 
 from cereal import custom, log
+from opendbc.car.gm.values import CAR as GM_CAR
 from opendbc.car.honda.values import CAR as HONDA_CAR, HondaFlags
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR, HyundaiFlags
 from opendbc.car.lateral import get_friction
@@ -176,7 +177,7 @@ class LatControlTorque(LatControl):
       self.pid._k_p = [self.pid._k_p[0], [*self.pid._k_p[1][:-1], HONDA_ACCORD_TORQUE_KP]]
       self.pid._k_i = [self.pid._k_i[0], [HONDA_ACCORD_TORQUE_KI] * len(self.pid._k_i[1])]
     # ==================== Envision Specific Tuning ====================
-    self.is_envision = CP.carFingerprint == "BUICK_ENVISION_SDGM"
+    self.is_envision = CP.carFingerprint == GM_CAR.BUICK_ENVISION_SDGM
     if self.is_envision:
       # Below ~3 m/s lateral control is inactive, so early gains are placeholders.
       # The stock KP at 5-10 m/s over-amplifies IMU noise from SUV suspension rebound.
