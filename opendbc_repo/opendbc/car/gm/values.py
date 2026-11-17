@@ -277,7 +277,7 @@ class CAR(Platforms):
     GMCarSpecs(mass=1800, wheelbase=2.75, steerRatio=15.6, centerToFrontRatio=0.41),
   dbc_dict={
         Bus.pt: 'gm_global_a_powertrain_envision',
-        Bus.radar: 'gm_global_a_object',
+        Bus.radar: 'gm_global_a_object_envision',
         Bus.chassis: 'gm_global_a_chassis',
     },
   )
