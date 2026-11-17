@@ -200,6 +200,7 @@ class CarState(CarStateBase):
   def update(self, can_parsers, starpilot_toggles) -> structs.CarState:
     pt_cp = can_parsers[Bus.pt]
     cam_cp = can_parsers[Bus.cam]
+    radar_cp = can_parsers[Bus.radar]
     loopback_cp = can_parsers[Bus.loopback]
 
     ret = structs.CarState()
@@ -449,7 +450,12 @@ class CarState(CarStateBase):
       ret.cruiseState.available, ret.standstill, ret.gasPressed,
     )
 
-    if self.CP.enableBsm and not sdgm_non_volt:
+    if self.CP.enableBsm and self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      bsm_msg = radar_cp.vl["SIDE_EYE_BSM"]
+      bsm_valid = (bsm_msg["BsmSystemEnabled"] == 1) and (bsm_msg["SwCanSleeping"] == 0)
+      ret.leftBlindspot = bsm_valid and (bsm_msg["LeftBSM"] == 1)
+      ret.rightBlindspot = bsm_valid and (bsm_msg["RightBSM"] == 1)
+    elif self.CP.enableBsm and not sdgm_non_volt:
       ret.leftBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["LeftBSM"] == 1
       ret.rightBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["RightBSM"] == 1
     elif self.CP.enableBsm:
@@ -636,9 +642,14 @@ class CarState(CarStateBase):
     loopback_messages = [
       ("ASCMLKASteeringCmd", 0),
     ]
+	
+    radar_messages = []
+    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM and CP.enableBsm:
+      radar_messages.append(("SIDE_EYE_BSM", 0))
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CanBus.POWERTRAIN),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, CanBus.CAMERA),
+      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.radar], radar_messages, CanBus.OBSTACLE),
       Bus.loopback: CANParser(DBC[CP.carFingerprint][Bus.pt], loopback_messages, CanBus.LOOPBACK),
     }
