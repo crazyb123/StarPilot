@@ -88,7 +88,7 @@ ENVISION_CENTER_MIN_SCALE = 0.80  # dimensionless
 # 1.0 = verified default, matches the version road-tested for hundreds of km.
 # i *= center_scale every frame, same rate as output taper, so the integrator
 # cannot wind up in the center band. <1.0 is a future A/B knob, not enabled.
-ENVISION_CENTER_I_DECAY_POWER = 1.0
+ENVISION_CENTER_I_DECAY_POWER = 0.0
 ENVISION_UNWIND_OUTPUT_SCALE = 0.8  # dimensionless
 ENVISION_UNWIND_MAX_SPEED_MPS = 25.0  # m/s; exactly 90 km/h (25 * 3.6)
 
