@@ -1,5 +1,6 @@
 import copy
 import math
+import time
 from cereal import custom
 from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs
@@ -450,11 +451,20 @@ class CarState(CarStateBase):
       ret.cruiseState.available, ret.standstill, ret.gasPressed,
     )
 
-    if self.CP.enableBsm and self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
-      bsm_msg = radar_cp.vl["SIDE_EYE_BSM"]
-      bsm_valid = (bsm_msg["BsmSystemEnabled"] == 1) and (bsm_msg["SwCanSleeping"] == 0)
-      ret.leftBlindspot = bsm_valid and (bsm_msg["LeftBSM"] == 1)
-      ret.rightBlindspot = bsm_valid and (bsm_msg["RightBSM"] == 1)
+    if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      # SideEye 网关 0x3A0 / DLC=2 / 20Hz：bit0 LeftBSM, bit1 RightBSM, bit2 SysEnabled, bit3 BusSleep
+      bsm = radar_cp.vl.get("SIDE_EYE_BSM")
+      if bsm is None:
+        # 报文未注册或从未收到 → fail-closed，且绝不 KeyError
+        ret.leftBlindspot = False
+        ret.rightBlindspot = False
+      else:
+        # 新鲜度用时间戳判（carstate 100Hz ≠ 报文 20Hz，禁用帧计数；也兜住网关卡死/掉电）
+        bsm_ts = radar_cp.ts_nanos.get("SIDE_EYE_BSM", {}).get("LeftBSM", 0)
+        bsm_fresh = (time.monotonic_ns() - bsm_ts) < 500_000_000          # 500ms = 漏 10 帧
+        bsm_valid = bsm_fresh and (bsm["BsmSystemEnabled"] == 1) and (bsm["SwCanSleeping"] == 0)
+        ret.leftBlindspot = bool(bsm_valid and bsm["LeftBSM"] == 1)
+        ret.rightBlindspot = bool(bsm_valid and bsm["RightBSM"] == 1)
     elif self.CP.enableBsm and not sdgm_non_volt:
       ret.leftBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["LeftBSM"] == 1
       ret.rightBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["RightBSM"] == 1
@@ -642,9 +652,9 @@ class CarState(CarStateBase):
     loopback_messages = [
       ("ASCMLKASteeringCmd", 0),
     ]
-	
+
     radar_messages = []
-    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM and CP.enableBsm:
+    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
       radar_messages.append(("SIDE_EYE_BSM", 0))
 
     return {
