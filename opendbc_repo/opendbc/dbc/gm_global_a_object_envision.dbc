@@ -705,6 +705,22 @@ BO_ 851 F_Vision_Environment_4: 8 VIS_FO
  SG_ SwCanSleeping : 3|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ RollingCounter : 8|8@1+ (1,0) [0|255] "" Vector__XXX
 
+ BO_ 929 SIDE_EYE_DIAG: 7 Vector__XXX
+ SG_ RawLeft : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ RawRight : 1|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ EnState : 2|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ InReverse : 4|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ BusSleep : 5|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ ZeroPendL : 8|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ ZeroPendR : 9|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ AgeL : 16|8@1+ (100,0) [0|25500] "ms" Vector__XXX
+ SG_ AgeR : 24|8@1+ (100,0) [0|25500] "ms" Vector__XXX
+ SG_ AgeEN : 32|8@1+ (100,0) [0|25500] "ms" Vector__XXX
+ SG_ AgeREV : 40|8@1+ (100,0) [0|25500] "ms" Vector__XXX
+ SG_ DriveMode : 48|7@1+ (1,0) [0|127] "" Vector__XXX
+ SG_ DiagCounter : 55|1@1+ (1,0) [0|1] "" Vector__XXX
+
+
 BO_TX_BU_ 161 : K124_ASCM,NEO;
 BO_TX_BU_ 774 : K124_ASCM,NEO;
 BO_TX_BU_ 784 : K124_ASCM,NEO;
