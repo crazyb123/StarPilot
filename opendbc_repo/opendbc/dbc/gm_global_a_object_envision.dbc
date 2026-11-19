@@ -697,12 +697,13 @@ BO_ 851 F_Vision_Environment_4: 8 VIS_FO
  SG_ LnPrvwDstncRght : 2|3@0+ (10,0) [0|70] "m"  EOCM2A_IMX6_FO,EOCM2A_K2_FO,EOCM2A_K1_FO,EOCM2B_IMX6_FO,EOCM2B_K2_FO,EOCM2B_K1_FO,EOCM_F_FO
  SG_ LnPrvwDstncLft : 5|3@0+ (10,0) [0|70] "m"  EOCM2A_IMX6_FO,EOCM2A_K2_FO,EOCM2A_K1_FO,EOCM2B_IMX6_FO,EOCM2B_K2_FO,EOCM2B_K1_FO,EOCM_F_FO
 
+ 
  BO_ 928 SIDE_EYE_BSM: 2 Vector__XXX
  SG_ LeftBSM : 0|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ RightBSM : 1|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ BsmSystemEnabled : 2|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ SwCanSleeping : 3|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ RollingCounter : 8|4@1+ (1,0) [0|15] "" Vector__XXX
+ SG_ RollingCounter : 8|8@1+ (1,0) [0|255] "" Vector__XXX
 
 BO_TX_BU_ 161 : K124_ASCM,NEO;
 BO_TX_BU_ 774 : K124_ASCM,NEO;
