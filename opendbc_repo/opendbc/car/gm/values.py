@@ -570,7 +570,7 @@ class CAR(Platforms):
   BUICK_ENVISION_SDGM = GMPlatformConfig(
     [GMCommunityCarDocs("Buick Envision (CN SDGM Retrofit) 2016", "Custom cross-flashed ADAS stack and SDGM harness")],
     GMCarSpecs(mass=1800, wheelbase=2.75, steerRatio=15.6, centerToFrontRatio=0.41),
-    dbc_dict={Bus.pt: 'gm_global_a_powertrain_envision', Bus.radar: 'gm_global_a_object', Bus.chassis: 'gm_global_a_chassis'},
+    dbc_dict={Bus.pt: 'gm_global_a_powertrain_envision', Bus.radar: 'gm_global_a_object_envision', Bus.chassis: 'gm_global_a_chassis'},
   )
   BUICK_LACROSSE = GMPlatformConfig(
     [GMCommunityCarDocs("Buick LaCrosse (OBD-II Harness) 2017-19", "Driver Confidence Package 2")],
