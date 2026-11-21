@@ -31,6 +31,7 @@ NetworkLocation = structs.CarParams.NetworkLocation
 
 STANDSTILL_THRESHOLD = 10 * 0.0311
 PEDAL_SENSOR_TIMEOUT_NS = 100_000_000  # Five expected 50 Hz frames.
+SIDE_EYE_BSM_TIMEOUT_NS = 500_000_000  # 10x the 20 Hz bridge period.
 
 BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.DECEL_SET: ButtonType.decelCruise,
                 CruiseButtons.MAIN: ButtonType.mainCruise, CruiseButtons.CANCEL: ButtonType.cancel}
@@ -670,19 +671,22 @@ class CarState(CarStateBase):
       ret.cruiseState.nonAdaptive = False
 
     if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
-      # SideEye 网关 0x3A0 / DLC=2 / 20Hz：
-      #   bit0 LeftBSM, bit1 RightBSM, bit2 SysEnabled, bit3 BusSleep
+      # SideEye SWCAN-to-CAN bridge: 0x3A0 (928), DLC 2, 20 Hz, on panda CAN1.
+      # bit0 LeftBSM, bit1 RightBSM, bit2 BsmSystemEnabled, bit3 SwCanSleeping.
       bsm = radar_cp.vl.get("SIDE_EYE_BSM")
       if bsm is None:
-        # 报文未注册或从未收到 → fail-closed，且绝不 KeyError
+        # Message not subscribed, or the bridge never sent anything: fail closed
+        # rather than raising KeyError out of the car daemon.
         ret.leftBlindspot = False
         ret.rightBlindspot = False
       else:
-        # 新鲜度用报文自身的 ts（carstate 100Hz ≠ 报文 20Hz，禁用帧计数）
-        # 时间基准用 pt_cp._last_update_nanos，与本文件其它健康检查同一时间域
+        # Judge staleness from the message's own timestamp, not from frame counts:
+        # carState ticks at 100 Hz while the bridge sends at 20 Hz. This also
+        # covers a bridge that died or lost power, because CANParser keeps the
+        # last value of a timed-out message instead of clearing it.
         now_ns = pt_cp._last_update_nanos
         bsm_ts = radar_cp.ts_nanos.get("SIDE_EYE_BSM", {}).get("LeftBSM", 0)
-        bsm_fresh = 0 < bsm_ts <= now_ns and (now_ns - bsm_ts) < 500_000_000     # 500ms
+        bsm_fresh = 0 < bsm_ts <= now_ns and (now_ns - bsm_ts) < SIDE_EYE_BSM_TIMEOUT_NS
         bsm_valid = bsm_fresh and (bsm["BsmSystemEnabled"] == 1) and (bsm["SwCanSleeping"] == 0)
         ret.leftBlindspot = bool(bsm_valid and bsm["LeftBSM"] == 1)
         ret.rightBlindspot = bool(bsm_valid and bsm["RightBSM"] == 1)
@@ -917,9 +921,12 @@ class CarState(CarStateBase):
       ("ASCMLKASteeringCmd", float('nan')),
     ]
 
-    radar_messages = []                                    # ★ 新增
+    radar_messages = []
     if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
-      radar_messages.append(("SIDE_EYE_BSM", float("nan")))  # nan => ignore_alive
+      # Optional subscription: the bridge may be absent, unpowered or asleep.
+      # A NaN frequency marks the message ignore_alive, so it never invalidates
+      # can_valid and never opens a bus-timeout path.
+      radar_messages.append(("SIDE_EYE_BSM", float("nan")))
 
     cam_messages = []
     if CP.carFingerprint in ASCM_INTERCEPT_CAR:
@@ -973,7 +980,8 @@ class CarState(CarStateBase):
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
-      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.radar], radar_messages, 1),   # ★ 新增，bus 1
+      # Bus 1 is the vehicle-side object CAN, continuously monitored by panda.
+      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.radar], radar_messages, 1),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
       Bus.loopback: CANParser(DBC[CP.carFingerprint][Bus.pt], loopback_messages, 128),
     }
