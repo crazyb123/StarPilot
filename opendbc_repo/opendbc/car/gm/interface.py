@@ -27,7 +27,12 @@ TransmissionType = structs.CarParams.TransmissionType
 NetworkLocation = structs.CarParams.NetworkLocation
 
 NON_LINEAR_TORQUE_PARAMS = {
-  CAR.BUICK_ENVISION_SDGM: [2.4, 1.05, 0.20, 0.0],
+  # Envision: 1.05/0.20 sets the achievable lateral-accel ceiling at
+  # (1 - 0.5*1.05)/0.20 = 2.375 m/s^2, which re-introduces sustained torque
+  # saturation and the 3 Nm steer-limit alert in low-speed tight turns.
+  # 0.98/0.18 raises that ceiling to 2.833 m/s^2 while leaving the
+  # zero-crossing slope essentially unchanged (0.768 vs 0.770).
+  CAR.BUICK_ENVISION_SDGM: [2.4, 0.98, 0.18, 0.0],
   CAR.CHEVROLET_BOLT_EUV: [2.6531724862969748, 1.0, 0.1919764879840985, 0.009054123646805178],
   CAR.GMC_ACADIA: [4.78003305, 1.0, 0.3122, 0.05591772],
   CAR.CHEVROLET_SILVERADO: [3.29974374, 1.0, 0.25571356, 0.0465122]
