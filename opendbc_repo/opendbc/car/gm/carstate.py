@@ -927,6 +927,8 @@ class CarState(CarStateBase):
       # A NaN frequency marks the message ignore_alive, so it never invalidates
       # can_valid and never opens a bus-timeout path.
       radar_messages.append(("SIDE_EYE_BSM", float("nan")))
+      # SIDE_EYE_DIAG (929) is deliberately not subscribed: it is a bench
+      # diagnostic stream, readable in Cabana with the DBC but never used by carState.
 
     cam_messages = []
     if CP.carFingerprint in ASCM_INTERCEPT_CAR:
