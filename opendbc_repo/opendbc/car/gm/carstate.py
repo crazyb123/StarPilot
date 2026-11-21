@@ -142,6 +142,7 @@ class CarState(CarStateBase):
     volt_camera_removed = is_volt_camera_removed(self.CP)
     pt_cp = can_parsers[Bus.pt]
     cam_cp = can_parsers[Bus.cam]
+    radar_cp = can_parsers[Bus.radar]
     loopback_cp = can_parsers[Bus.loopback]
 
     ret = structs.CarState()
@@ -668,7 +669,24 @@ class CarState(CarStateBase):
       ret.cruiseState.speed = pt_cp.vl["ECMCruiseControl"]["CruiseSetSpeed"] * CV.KPH_TO_MS
       ret.cruiseState.nonAdaptive = False
 
-    if self.CP.flags & GMFlags.HAS_BSM.value:
+    if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      # SideEye 网关 0x3A0 / DLC=2 / 20Hz：
+      #   bit0 LeftBSM, bit1 RightBSM, bit2 SysEnabled, bit3 BusSleep
+      bsm = radar_cp.vl.get("SIDE_EYE_BSM")
+      if bsm is None:
+        # 报文未注册或从未收到 → fail-closed，且绝不 KeyError
+        ret.leftBlindspot = False
+        ret.rightBlindspot = False
+      else:
+        # 新鲜度用报文自身的 ts（carstate 100Hz ≠ 报文 20Hz，禁用帧计数）
+        # 时间基准用 pt_cp._last_update_nanos，与本文件其它健康检查同一时间域
+        now_ns = pt_cp._last_update_nanos
+        bsm_ts = radar_cp.ts_nanos.get("SIDE_EYE_BSM", {}).get("LeftBSM", 0)
+        bsm_fresh = 0 < bsm_ts <= now_ns and (now_ns - bsm_ts) < 500_000_000     # 500ms
+        bsm_valid = bsm_fresh and (bsm["BsmSystemEnabled"] == 1) and (bsm["SwCanSleeping"] == 0)
+        ret.leftBlindspot = bool(bsm_valid and bsm["LeftBSM"] == 1)
+        ret.rightBlindspot = bool(bsm_valid and bsm["RightBSM"] == 1)
+    elif self.CP.flags & GMFlags.HAS_BSM.value:
       ret.leftBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["LeftBSM"] == 1
       ret.rightBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["RightBSM"] == 1
 
@@ -899,6 +917,10 @@ class CarState(CarStateBase):
       ("ASCMLKASteeringCmd", float('nan')),
     ]
 
+    radar_messages = []                                    # ★ 新增
+    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      radar_messages.append(("SIDE_EYE_BSM", float("nan")))  # nan => ignore_alive
+
     cam_messages = []
     if CP.carFingerprint in ASCM_INTERCEPT_CAR:
       # These camera messages are required except OEM AEB, which is not reliable at startup.
@@ -951,6 +973,7 @@ class CarState(CarStateBase):
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
+      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.radar], radar_messages, 1),   # ★ 新增，bus 1
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
       Bus.loopback: CANParser(DBC[CP.carFingerprint][Bus.pt], loopback_messages, 128),
     }
