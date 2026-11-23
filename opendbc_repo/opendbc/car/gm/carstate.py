@@ -31,6 +31,7 @@ NetworkLocation = structs.CarParams.NetworkLocation
 
 STANDSTILL_THRESHOLD = 10 * 0.0311
 PEDAL_SENSOR_TIMEOUT_NS = 100_000_000  # Five expected 50 Hz frames.
+SIDE_EYE_BSM_TIMEOUT_NS = 500_000_000  # 10x the 20 Hz bridge period.
 
 BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.DECEL_SET: ButtonType.decelCruise,
                 CruiseButtons.MAIN: ButtonType.mainCruise, CruiseButtons.CANCEL: ButtonType.cancel}
@@ -142,6 +143,7 @@ class CarState(CarStateBase):
     volt_camera_removed = is_volt_camera_removed(self.CP)
     pt_cp = can_parsers[Bus.pt]
     cam_cp = can_parsers[Bus.cam]
+    radar_cp = can_parsers[Bus.radar]
     loopback_cp = can_parsers[Bus.loopback]
 
     ret = structs.CarState()
@@ -419,12 +421,10 @@ class CarState(CarStateBase):
     ret.standstill = abs(pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"]) <= STANDSTILL_THRESHOLD and \
                      abs(pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"]) <= STANDSTILL_THRESHOLD
 
-    gear = pt_cp.vl["ECMPRDNL2"]
-    self.gm_regen_gear = self.bolt_cc_profile and self.CP.carFingerprint in NO_ACC_BOLT_CAR and gear["PRNDL2"] in (5, 7)
-    if gear["ManualMode"] == 1:
+    if pt_cp.vl["ECMPRDNL2"]["ManualMode"] == 1:
       ret.gearShifter = self.parse_gear_shifter("T")
     else:
-      ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(gear["PRNDL2"], None))
+      ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL2"]["PRNDL2"], None))
 
     source_be_brake = (gm_control_word(self.CP) &
                        (GMSafetyFlags.ASCM_INTERCEPT | GMSafetyFlags.SDGM).value and
@@ -495,10 +495,7 @@ class CarState(CarStateBase):
       if new_sample:
         self.pedal_sensor_ts_nanos = sensor_ts
         self.pedal_sensor_counter = counter
-        state = sensor["STATE"]
-        state_ok = state == 0 or (state == 8 and bolt_pedal_profile and not removed_pedal and
-                                  self.CP.carFingerprint == CAR.CHEVROLET_BOLT_CC_2022_2023)
-        self.pedal_sensor_healthy = bool(counter_changed and state_ok and tracks_valid and checksum_valid)
+        self.pedal_sensor_healthy = bool(counter_changed and sensor["STATE"] == 0 and tracks_valid and checksum_valid)
       elif sensor_ts < self.pedal_sensor_ts_nanos:
         self.pedal_sensor_healthy = False
         self.pedal_sensor_ts_nanos = 0
@@ -673,7 +670,27 @@ class CarState(CarStateBase):
       ret.cruiseState.speed = pt_cp.vl["ECMCruiseControl"]["CruiseSetSpeed"] * CV.KPH_TO_MS
       ret.cruiseState.nonAdaptive = False
 
-    if self.CP.flags & GMFlags.HAS_BSM.value:
+    if self.CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      # SideEye SWCAN-to-CAN bridge: 0x3A0 (928), DLC 2, 20 Hz, on panda CAN1.
+      # bit0 LeftBSM, bit1 RightBSM, bit2 BsmSystemEnabled, bit3 SwCanSleeping.
+      bsm = radar_cp.vl.get("SIDE_EYE_BSM")
+      if bsm is None:
+        # Message not subscribed, or the bridge never sent anything: fail closed
+        # rather than raising KeyError out of the car daemon.
+        ret.leftBlindspot = False
+        ret.rightBlindspot = False
+      else:
+        # Judge staleness from the message's own timestamp, not from frame counts:
+        # carState ticks at 100 Hz while the bridge sends at 20 Hz. This also
+        # covers a bridge that died or lost power, because CANParser keeps the
+        # last value of a timed-out message instead of clearing it.
+        now_ns = pt_cp._last_update_nanos
+        bsm_ts = radar_cp.ts_nanos.get("SIDE_EYE_BSM", {}).get("LeftBSM", 0)
+        bsm_fresh = 0 < bsm_ts <= now_ns and (now_ns - bsm_ts) < SIDE_EYE_BSM_TIMEOUT_NS
+        bsm_valid = bsm_fresh and (bsm["BsmSystemEnabled"] == 1) and (bsm["SwCanSleeping"] == 0)
+        ret.leftBlindspot = bool(bsm_valid and bsm["LeftBSM"] == 1)
+        ret.rightBlindspot = bool(bsm_valid and bsm["RightBSM"] == 1)
+    elif self.CP.flags & GMFlags.HAS_BSM.value:
       ret.leftBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["LeftBSM"] == 1
       ret.rightBlindspot = pt_cp.vl["BCMBlindSpotMonitor"]["RightBSM"] == 1
 
@@ -904,6 +921,15 @@ class CarState(CarStateBase):
       ("ASCMLKASteeringCmd", float('nan')),
     ]
 
+    radar_messages = []
+    if CP.carFingerprint == CAR.BUICK_ENVISION_SDGM:
+      # Optional subscription: the bridge may be absent, unpowered or asleep.
+      # A NaN frequency marks the message ignore_alive, so it never invalidates
+      # can_valid and never opens a bus-timeout path.
+      radar_messages.append(("SIDE_EYE_BSM", float("nan")))
+      # SIDE_EYE_DIAG (929) is deliberately not subscribed: it is a bench
+      # diagnostic stream, readable in Cabana with the DBC but never used by carState.
+
     cam_messages = []
     if CP.carFingerprint in ASCM_INTERCEPT_CAR:
       # These camera messages are required except OEM AEB, which is not reliable at startup.
@@ -956,6 +982,8 @@ class CarState(CarStateBase):
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
+      # Bus 1 is the vehicle-side object CAN, continuously monitored by panda.
+      Bus.radar: CANParser(DBC[CP.carFingerprint][Bus.radar], radar_messages, 1),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
       Bus.loopback: CANParser(DBC[CP.carFingerprint][Bus.pt], loopback_messages, 128),
     }
